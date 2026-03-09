@@ -1,0 +1,17 @@
+# Pilot data config restricted to articles (OpenAlex type "article" = journal/proceedings articles).
+# Reduces bias from books, book-chapters, and other types that can be highly cited.
+# Uses sort=publication_date:asc for chronological order (avoids API default order bias).
+# Note: OpenAlex filter uses type:article (not "journal-article" or "proceedings-article").
+dataset_name: openalex_pilot_articles
+seed: 42
+sample_size: 1000
+
+from_publication_date: "2015-01-01"
+to_publication_date: "2020-12-31"
+
+work_types:
+  - article
+sort: "publication_date:asc"
+
+fields: []
+output_path: "data/raw/openalex_pilot_articles.jsonl"

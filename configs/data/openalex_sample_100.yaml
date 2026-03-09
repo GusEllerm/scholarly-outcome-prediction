@@ -1,0 +1,24 @@
+dataset_name: openalex_sample_100
+seed: 42
+sample_size: 100
+
+from_publication_date: "2018-01-01"
+to_publication_date: "2018-12-31"
+
+fields:
+  - id
+  - display_name
+  - publication_year
+  - publication_date
+  - type
+  - language
+  - cited_by_count
+  - referenced_works
+  - authorships
+  - primary_location
+  - host_venue
+  - open_access
+  - topics
+
+output_path: "data/raw/openalex_sample_100.jsonl"
+

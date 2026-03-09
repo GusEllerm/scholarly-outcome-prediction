@@ -1,0 +1,11 @@
+# Debug data config: small, fast, for smoke tests and local iteration.
+# Use with: fetch --config configs/data/openalex_debug.yaml
+dataset_name: openalex_debug
+seed: 42
+sample_size: 20
+
+from_publication_date: "2019-01-01"
+to_publication_date: "2019-12-31"
+
+fields: []
+output_path: "data/raw/openalex_debug.jsonl"

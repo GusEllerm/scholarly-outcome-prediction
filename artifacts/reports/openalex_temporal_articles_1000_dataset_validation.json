@@ -1,0 +1,203 @@
+{
+  "report_scope": "run",
+  "report_name": "dataset_validation",
+  "generated_at": "2026-03-09T20:27:15.202342+00:00",
+  "dataset_id": "openalex_temporal_articles_1000",
+  "run_id": "2026-03-09T20:27:15.195056+00:00",
+  "source_dataset_path": "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet",
+  "source_dataset_id": "openalex_temporal_articles_1000",
+  "dataset_mode": "temporal",
+  "expected_work_types": [
+    "article"
+  ],
+  "processed_path": "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet",
+  "validated_at": "2026-03-09T20:27:15.202342+00:00",
+  "raw": {
+    "row_count": 1000,
+    "type_counts": {
+      "article": 1000
+    },
+    "publication_year_counts": {
+      "2015": 165,
+      "2016": 167,
+      "2017": 167,
+      "2018": 167,
+      "2019": 167,
+      "2020": 167
+    },
+    "venue_like_available_count": 888,
+    "venue_like_available_pct": 88.8,
+    "publication_year_min": 2015,
+    "publication_year_max": 2020,
+    "_source": "raw_records"
+  },
+  "processed": {
+    "row_count": 1000,
+    "source_path": null,
+    "column_names": [
+      "openalex_id",
+      "title",
+      "publication_year",
+      "publication_date",
+      "type",
+      "language",
+      "cited_by_count",
+      "referenced_works_count",
+      "authors_count",
+      "institutions_count",
+      "venue_name",
+      "open_access_is_oa",
+      "primary_topic",
+      "abstract_text",
+      "fulltext_text",
+      "has_abstract",
+      "has_fulltext",
+      "fulltext_origin"
+    ],
+    "publication_year": {
+      "min": 2015,
+      "max": 2020,
+      "n_unique": 6,
+      "counts": {
+        "2015": 165,
+        "2016": 167,
+        "2017": 167,
+        "2018": 167,
+        "2019": 167,
+        "2020": 167
+      }
+    },
+    "type_counts": {
+      "article": 1000
+    },
+    "citation_distribution": {
+      "min": 0.0,
+      "q05": 0.0,
+      "q25": 0.0,
+      "median": 0.0,
+      "q75": 6.0,
+      "q95": 42.0,
+      "max": 333.0,
+      "mean": 8.892
+    },
+    "missingness_summary": {
+      "openalex_id": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "title": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "publication_year": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "publication_date": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "type": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "language": {
+        "count": 3,
+        "pct": 0.3
+      },
+      "cited_by_count": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "referenced_works_count": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "authors_count": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "institutions_count": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "venue_name": {
+        "count": 112,
+        "pct": 11.2
+      },
+      "open_access_is_oa": {
+        "count": 0,
+        "pct": 0.0
+      },
+      "primary_topic": {
+        "count": 2,
+        "pct": 0.2
+      },
+      "abstract_text": {
+        "count": 374,
+        "pct": 37.4
+      },
+      "fulltext_text": {
+        "count": 1000,
+        "pct": 100.0
+      },
+      "has_abstract": {
+        "count": 374,
+        "pct": 37.4
+      },
+      "has_fulltext": {
+        "count": 1000,
+        "pct": 100.0
+      },
+      "fulltext_origin": {
+        "count": 1000,
+        "pct": 100.0
+      }
+    },
+    "distinct_venue_count": 794,
+    "distinct_primary_topic_count": 772,
+    "distinct_language_count": 29,
+    "venue_name_non_null_pct": 88.8,
+    "primary_topic_non_null_pct": 99.8,
+    "authors_count_non_null_pct": 100.0,
+    "institutions_count_non_null_pct": 100.0,
+    "target_cited_by_count": {
+      "min": 0.0,
+      "max": 333.0,
+      "mean": 8.892,
+      "median": 0.0,
+      "count": 1000,
+      "missing": 0
+    },
+    "passed": true,
+    "errors": [],
+    "warnings": [],
+    "messages": [
+      {
+        "severity": "expected",
+        "text": "Single type 'article' matches config work_types ['article']"
+      }
+    ],
+    "citation_quantiles": {
+      "min": 0.0,
+      "q05": 0.0,
+      "q25": 0.0,
+      "median": 0.0,
+      "q75": 6.0,
+      "q95": 42.0,
+      "max": 333.0,
+      "mean": 8.892
+    },
+    "_source": "processed_dataframe",
+    "processed_path": "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet"
+  },
+  "passed": true,
+  "errors": [],
+  "warnings": [],
+  "messages": [
+    {
+      "severity": "expected",
+      "text": "Single type 'article' matches config work_types ['article']"
+    }
+  ]
+}

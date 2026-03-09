@@ -1,0 +1,16 @@
+# Representative pilot: article-only, multi-year, within-year RANDOM sampling.
+# stratify_by_year + use_random_sample: OpenAlex sample+seed per year (no API default order bias).
+dataset_name: openalex_representative_articles_1000
+seed: 42
+sample_size: 1000
+
+from_publication_date: "2015-01-01"
+to_publication_date: "2020-12-31"
+
+work_types:
+  - article
+stratify_by_year: true
+use_random_sample: true
+
+fields: []
+output_path: "data/raw/openalex_representative_articles_1000.jsonl"

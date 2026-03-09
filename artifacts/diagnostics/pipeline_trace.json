@@ -1,0 +1,143 @@
+{
+  "report_scope": "run",
+  "report_name": "pipeline_trace",
+  "generated_at": "2026-03-09T20:27:15.375213+00:00",
+  "dataset_id": "openalex_temporal_articles_1000",
+  "run_id": "2026-03-09T20:27:15.195056+00:00",
+  "source_dataset_path": "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet",
+  "source_dataset_id": "openalex_temporal_articles_1000",
+  "config_paths": {
+    "data": "/Users/gusellerm/Projects/scholarly-outcome-prediction/configs/data/openalex_temporal_articles_1000.yaml",
+    "baseline_experiment": "/Users/gusellerm/Projects/scholarly-outcome-prediction/configs/experiments/baseline_temporal.yaml",
+    "xgb_experiment": "/Users/gusellerm/Projects/scholarly-outcome-prediction/configs/experiments/xgb_temporal.yaml"
+  },
+  "data_config": {
+    "data_config_path": "/Users/gusellerm/Projects/scholarly-outcome-prediction/configs/data/openalex_temporal_articles_1000.yaml",
+    "configured_dataset_id": "openalex_temporal_articles_1000",
+    "effective_dataset_id": "openalex_temporal_articles_1000",
+    "raw_output_path": "data/raw/openalex_temporal_articles_1000.jsonl",
+    "effective_processed_path": "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet",
+    "year_range": {
+      "from_publication_date": "2015-01-01",
+      "to_publication_date": "2020-12-31"
+    },
+    "work_types": [
+      "article"
+    ],
+    "sample_size": 1000,
+    "seed": 42,
+    "representative_vs_temporal": "temporal",
+    "stratify_by_year": true,
+    "use_random_sample": true,
+    "effective_sampling_strategy": "stratified_by_year_with_random_sample"
+  },
+  "experiments": [
+    {
+      "experiment_config_path": "/Users/gusellerm/Projects/scholarly-outcome-prediction/configs/experiments/baseline_temporal.yaml",
+      "experiment_name": "baseline_temporal",
+      "model_name": "baseline",
+      "split_kind": "time",
+      "target_name": "cited_by_count",
+      "target_mode": "proxy",
+      "target_transform": "log1p",
+      "feature_numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "feature_categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "configured_processed_path": "data/processed/openalex_temporal_articles_1000.parquet",
+      "effective_processed_path_used": "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet"
+    },
+    {
+      "experiment_config_path": "/Users/gusellerm/Projects/scholarly-outcome-prediction/configs/experiments/xgb_temporal.yaml",
+      "experiment_name": "xgb_temporal",
+      "model_name": "xgboost",
+      "split_kind": "time",
+      "target_name": "cited_by_count",
+      "target_mode": "proxy",
+      "target_transform": "log1p",
+      "feature_numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "feature_categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "configured_processed_path": "data/processed/openalex_temporal_articles_1000.parquet",
+      "effective_processed_path_used": "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet"
+    }
+  ],
+  "stages_completed": {
+    "fetch": true,
+    "prepare": true,
+    "validation": true,
+    "train": true,
+    "evaluate": true
+  },
+  "consistency_checks": {
+    "dataset_id_match": "pass",
+    "processed_path_match": "pass",
+    "validation_input_match": "pass",
+    "artifacts_present": "pass",
+    "baseline_xgb_metadata_match": "pass"
+  },
+  "cross_checks": {
+    "data_config_dataset_id_equals_metrics_dataset_id": {
+      "data_config_dataset_id": "openalex_temporal_articles_1000",
+      "per_metrics_file": {
+        "baseline_temporal.json": {
+          "metrics_effective_dataset_id": "openalex_temporal_articles_1000",
+          "agree": true
+        },
+        "xgb_temporal.json": {
+          "metrics_effective_dataset_id": "openalex_temporal_articles_1000",
+          "agree": true
+        }
+      },
+      "all_agree": true
+    },
+    "experiment_processed_path_equals_effective": [
+      [
+        "data/processed/openalex_temporal_articles_1000.parquet",
+        "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet"
+      ],
+      [
+        "data/processed/openalex_temporal_articles_1000.parquet",
+        "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet"
+      ]
+    ],
+    "validation_path_used": "/Users/gusellerm/Projects/scholarly-outcome-prediction/artifacts/reports/openalex_temporal_articles_1000_dataset_validation.json",
+    "model_artifacts_exist": [
+      "/Users/gusellerm/Projects/scholarly-outcome-prediction/artifacts/models/baseline_temporal.joblib",
+      "/Users/gusellerm/Projects/scholarly-outcome-prediction/artifacts/models/xgb_temporal.joblib"
+    ],
+    "model_artifacts_missing": [],
+    "metrics_artifacts_exist": [
+      "/Users/gusellerm/Projects/scholarly-outcome-prediction/artifacts/metrics/baseline_temporal.json",
+      "/Users/gusellerm/Projects/scholarly-outcome-prediction/artifacts/metrics/xgb_temporal.json"
+    ],
+    "metrics_artifacts_missing": []
+  },
+  "metrics_paths": [
+    "/Users/gusellerm/Projects/scholarly-outcome-prediction/artifacts/metrics/baseline_temporal.json",
+    "/Users/gusellerm/Projects/scholarly-outcome-prediction/artifacts/metrics/xgb_temporal.json"
+  ],
+  "model_paths": [
+    "/Users/gusellerm/Projects/scholarly-outcome-prediction/artifacts/models/baseline_temporal.joblib",
+    "/Users/gusellerm/Projects/scholarly-outcome-prediction/artifacts/models/xgb_temporal.joblib"
+  ]
+}

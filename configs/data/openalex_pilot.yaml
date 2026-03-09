@@ -1,0 +1,12 @@
+# Pilot data config: broader date range and larger sample for a more realistic first benchmark.
+# publication_year will vary across years. Use for meaningful baseline vs model comparison.
+# Use with: fetch --config configs/data/openalex_pilot.yaml
+dataset_name: openalex_pilot
+seed: 42
+sample_size: 1000
+
+from_publication_date: "2015-01-01"
+to_publication_date: "2020-12-31"
+
+fields: []
+output_path: "data/raw/openalex_pilot.jsonl"

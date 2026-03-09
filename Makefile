@@ -1,0 +1,75 @@
+PYTHON ?= python
+
+.PHONY: install lint format test clean run-example run-pilot run-pilot-time run-representative-pilot run-temporal-pilot validate-representative-pilot validate-temporal-pilot validate-latest-pilot profile-representative-pilot profile-temporal-pilot
+
+install:
+	uv sync --extra dev
+
+lint:
+	uv run ruff check src tests
+
+format:
+	uv run ruff format src tests
+
+test:
+	uv run pytest
+
+# Remove transient data, artifacts, and cache (keeps .gitkeep in data/ and artifacts/).
+clean:
+	@for dir in data/raw data/interim data/processed artifacts/models artifacts/metrics artifacts/figures artifacts/reports artifacts/diagnostics artifacts/debug; do \
+		if [ -d "$$dir" ]; then find "$$dir" -depth -mindepth 1 ! -name .gitkeep -exec rm -rf {} \; 2>/dev/null || true; fi; \
+	done
+	@rm -rf .pytest_cache .coverage htmlcov 2>/dev/null || true
+	@find src tests -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+run-example:
+	uv run scholarly-outcome-prediction run \
+		--data-config configs/data/openalex_sample_100.yaml \
+		--baseline-config configs/experiments/baseline_regression.yaml \
+		--xgb-config configs/experiments/xgb_regression.yaml
+
+run-pilot:
+	uv run scholarly-outcome-prediction run \
+		--data-config configs/data/openalex_pilot.yaml \
+		--baseline-config configs/experiments/baseline_regression.yaml \
+		--xgb-config configs/experiments/xgb_regression.yaml
+
+# New pilot: journal+proceedings articles only, sort=publication_date:asc; time-based train/test split.
+run-pilot-time:
+	uv run scholarly-outcome-prediction run \
+		--data-config configs/data/openalex_pilot_articles.yaml \
+		--baseline-config configs/experiments/baseline_regression_time.yaml \
+		--xgb-config configs/experiments/xgb_regression_time.yaml
+
+# Representative pilot: article-only, stratify_by_year for multi-year sample; random split for benchmarking.
+run-representative-pilot:
+	uv run scholarly-outcome-prediction run \
+		--data-config configs/data/openalex_representative_articles_1000.yaml \
+		--baseline-config configs/experiments/baseline_representative.yaml \
+		--xgb-config configs/experiments/xgb_representative.yaml
+
+# Temporal pilot: article-only, stratify_by_year for multi-year sample; train 2015-2018, test 2019-2020.
+run-temporal-pilot:
+	uv run scholarly-outcome-prediction run \
+		--data-config configs/data/openalex_temporal_articles_1000.yaml \
+		--baseline-config configs/experiments/baseline_temporal.yaml \
+		--xgb-config configs/experiments/xgb_temporal.yaml
+
+# Validate representative pilot dataset.
+validate-representative-pilot:
+	uv run scholarly-outcome-prediction validate --data-config configs/data/openalex_representative_articles_1000.yaml
+
+# Validate temporal pilot dataset.
+validate-temporal-pilot:
+	uv run scholarly-outcome-prediction validate --data-config configs/data/openalex_temporal_articles_1000.yaml
+
+# Alias for validate-representative-pilot.
+validate-latest-pilot: validate-representative-pilot
+
+# Regenerate diagnostics for the representative pilot dataset (stamped with dataset_id and run_id).
+profile-representative-pilot:
+	uv run python scripts/generate_diagnostics.py --processed data/processed/openalex_representative_articles_1000.parquet --dataset-id openalex_representative_articles_1000
+
+# Regenerate diagnostics for the temporal pilot dataset.
+profile-temporal-pilot:
+	uv run python scripts/generate_diagnostics.py --processed data/processed/openalex_temporal_articles_1000.parquet --dataset-id openalex_temporal_articles_1000

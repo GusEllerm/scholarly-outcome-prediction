@@ -1,0 +1,42 @@
+# Baseline regression with time-based split (train on earlier years, test on later).
+# Use with data prepared from openalex_pilot_articles or any dataset with publication_year.
+experiment_name: baseline_regression_time
+task_type: regression
+
+data:
+  processed_path: "data/processed/openalex_pilot_articles.parquet"
+  dataset_id: openalex_pilot_articles
+
+target:
+  name: cited_by_count
+  transform: log1p
+  target_mode: proxy
+
+features:
+  numeric:
+    - publication_year
+    - referenced_works_count
+    - authors_count
+    - institutions_count
+  categorical:
+    - type
+    - language
+    - venue_name
+    - primary_topic
+    - open_access_is_oa
+
+split:
+  split_kind: time
+  time_column: publication_year
+  test_size: 0.2
+  random_state: 42
+
+model:
+  name: baseline
+  params: {}
+
+evaluation:
+  metrics:
+    - rmse
+    - mae
+    - r2

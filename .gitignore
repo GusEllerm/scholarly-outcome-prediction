@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Environments
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+
+# uv
+uv.lock
+.uv/
+
+# Data and artifacts
+data/raw/*
+data/interim/*
+data/processed/*
+artifacts/models/*
+artifacts/metrics/*
+artifacts/figures/*
+
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!artifacts/models/.gitkeep
+!artifacts/metrics/.gitkeep
+!artifacts/figures/.gitkeep
+
+# Coverage / test outputs
+.coverage
+htmlcov/
+.pytest_cache/
+
