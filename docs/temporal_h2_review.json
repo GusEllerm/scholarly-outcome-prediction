@@ -1,0 +1,420 @@
+{
+  "benchmark_definition": {
+    "target_semantics": "Citations from publication_year through publication_year+2 (3 calendar years), from counts_by_year",
+    "split_semantics": "Time-based: train publication_year <= 2018, test publication_year >= 2019",
+    "eligibility_rule": "Row eligible iff publication_year + horizon_years <= max_available_citation_year",
+    "feature_set_numeric": [
+      "publication_year",
+      "referenced_works_count",
+      "authors_count",
+      "institutions_count"
+    ],
+    "feature_set_categorical": [
+      "type",
+      "language",
+      "venue_name",
+      "primary_topic",
+      "open_access_is_oa"
+    ],
+    "models_compared": [
+      "baseline",
+      "xgboost"
+    ],
+    "limitations": [
+      "Calendar-horizon is calendar-year granularity, not exact month-based window",
+      "Empty/missing counts_by_year treated as zero yearly-count series",
+      "Target-level vs dataset-level cited_by_count are different concepts"
+    ]
+  },
+  "population_summary": {
+    "total_processed_rows": 1000,
+    "target_eligible_rows": 1000,
+    "excluded_incomplete_horizon": 0,
+    "train_rows": 666,
+    "test_rows": 334,
+    "train_year_range": [
+      2015,
+      2018
+    ],
+    "test_year_range": [
+      2019,
+      2020
+    ],
+    "train_year_counts": {
+      "2015": 165,
+      "2016": 167,
+      "2017": 167,
+      "2018": 167
+    },
+    "test_year_counts": {
+      "2019": 167,
+      "2020": 167
+    },
+    "target_zero_rate_train": 0.6742,
+    "target_zero_rate_test": 0.6018,
+    "target_distribution_train": {
+      "count": 666,
+      "min": 0.0,
+      "q05": 0.0,
+      "q25": 0.0,
+      "median": 0.0,
+      "q75": 0.6931471805599453,
+      "q95": 2.3978952727983707,
+      "max": 4.382026634673881,
+      "mean": 0.5101414764158018
+    },
+    "target_distribution_test": {
+      "count": 334,
+      "min": 0.0,
+      "q05": 0.0,
+      "q25": 0.0,
+      "median": 0.0,
+      "q75": 1.0986122886681098,
+      "q95": 2.9794681896613806,
+      "max": 4.804021044733257,
+      "mean": 0.7010030655452112
+    }
+  },
+  "metrics": {
+    "baseline": {
+      "rmse": 1.0743735503877943,
+      "mae": 0.8048642044562128,
+      "r2": -0.0325876761960624,
+      "spearman": null
+    },
+    "xgboost": {
+      "rmse": 0.7700822826976326,
+      "mae": 0.47270618499942557,
+      "r2": 0.4694936523132517,
+      "spearman": 0.67145100662018
+    }
+  },
+  "subgroup_metrics": {
+    "by_publication_year": {
+      "2020": {
+        "n": 167,
+        "mean_target": 0.7201097747712423,
+        "zero_rate": 0.5988,
+        "mae_baseline": 0.8209161743025086,
+        "mae_xgb": 0.4805706110355443,
+        "rmse_xgb": 0.7892889553588428
+      },
+      "2019": {
+        "n": 167,
+        "mean_target": 0.68189635631918,
+        "zero_rate": 0.6048,
+        "mae_baseline": 0.7888122346099171,
+        "mae_xgb": 0.4648417589633068,
+        "rmse_xgb": 0.7503841610789367
+      }
+    },
+    "zero_target": {
+      "n": 201,
+      "mean_target": 0.0,
+      "zero_rate": 1.0,
+      "mae_baseline": 0.5101414764158019,
+      "mae_xgb": 0.2054347920958972,
+      "rmse_xgb": 0.4006339100724257
+    },
+    "nonzero_target": {
+      "n": 133,
+      "mean_target": 1.7604137134744402,
+      "zero_rate": 0.0,
+      "mae_baseline": 1.250272237058638,
+      "mae_xgb": 0.8766276133724271,
+      "rmse_xgb": 1.1165498405645162
+    },
+    "by_authors_count_bucket": {
+      "bin_1": {
+        "n": 93,
+        "mean_target": 0.22246033043772429,
+        "zero_rate": 0.8495,
+        "mae_baseline": 0.5790108247068332,
+        "mae_xgb": 0.2798855884179069,
+        "rmse_xgb": 0.6151192264855826
+      },
+      "bin_2": {
+        "n": 147,
+        "mean_target": 0.6305419325360466,
+        "zero_rate": 0.6122,
+        "mae_baseline": 0.7450634884661247,
+        "mae_xgb": 0.4455017454179896,
+        "rmse_xgb": 0.7237457499223301
+      },
+      "bin_3": {
+        "n": 70,
+        "mean_target": 1.3870936611670979,
+        "zero_rate": 0.2857,
+        "mae_baseline": 1.1684615998460395,
+        "mae_xgb": 0.7499608082705396,
+        "rmse_xgb": 0.9896017454747511
+      },
+      "bin_4": {
+        "n": 16,
+        "mean_target": 1.3234428841942785,
+        "zero_rate": 0.375,
+        "mae_baseline": 1.195907515090328,
+        "mae_xgb": 0.710671155036953,
+        "rmse_xgb": 0.939353501950333
+      },
+      "bin_0": {
+        "n": 8,
+        "mean_target": 0.31061333122350004,
+        "zero_rate": 0.75,
+        "mae_baseline": 0.5656840694314009,
+        "mae_xgb": 0.312219303871167,
+        "rmse_xgb": 0.6337018868041464
+      }
+    },
+    "by_referenced_works_count_bucket": {
+      "bin_0": {
+        "n": 218,
+        "mean_target": 0.22187906919273667,
+        "zero_rate": 0.8211,
+        "mae_baseline": 0.5494928613863709,
+        "mae_xgb": 0.2821179443509362,
+        "rmse_xgb": 0.5579021224962004
+      },
+      "bin_2": {
+        "n": 62,
+        "mean_target": 1.3602402134612719,
+        "zero_rate": 0.2258,
+        "mae_baseline": 1.0804852102655091,
+        "mae_xgb": 0.7972758195153081,
+        "rmse_xgb": 0.9474691712960317
+      },
+      "bin_4": {
+        "n": 1,
+        "mean_target": 1.0986122886681098,
+        "zero_rate": 0.0,
+        "mae_baseline": 0.588470812252308,
+        "mae_xgb": 0.6094220976376075,
+        "rmse_xgb": 0.6094220976376075
+      },
+      "bin_3": {
+        "n": 31,
+        "mean_target": 2.244782963497352,
+        "zero_rate": 0.0323,
+        "mae_baseline": 1.7675538403986988,
+        "mae_xgb": 0.762126409694494,
+        "rmse_xgb": 0.9332404798542819
+      },
+      "bin_1": {
+        "n": 22,
+        "mean_target": 1.3974367916545027,
+        "zero_rate": 0.3182,
+        "mae_baseline": 1.2119308002305742,
+        "mae_xgb": 1.0325323778721835,
+        "rmse_xgb": 1.464576438077853
+      }
+    },
+    "by_primary_topic": {
+      "Military Technology and Strategies": {
+        "n": 23,
+        "mean_target": 0.0,
+        "zero_rate": 1.0,
+        "mae_baseline": 0.5101414764158018,
+        "mae_xgb": 0.04532526514452437,
+        "rmse_xgb": 0.04535154709847757
+      },
+      "Islamic Finance and Communication": {
+        "n": 3,
+        "mean_target": 0.23104906018664842,
+        "zero_rate": 0.6667,
+        "mae_baseline": 0.40109621899191567,
+        "mae_xgb": 0.274423141639336,
+        "rmse_xgb": 0.3027462986325168
+      },
+      "Educational Innovations and Technology": {
+        "n": 3,
+        "mean_target": 0.0,
+        "zero_rate": 1.0,
+        "mae_baseline": 0.5101414764158018,
+        "mae_xgb": 0.1652038445075353,
+        "rmse_xgb": 0.22151405713686886
+      },
+      "Education and Character Development": {
+        "n": 3,
+        "mean_target": 0.3662040962227033,
+        "zero_rate": 0.6667,
+        "mae_baseline": 0.5362512550279704,
+        "mae_xgb": 0.4421644542066103,
+        "rmse_xgb": 0.5923536512522074
+      },
+      "Geotechnical and Geomechanical Engineering": {
+        "n": 2,
+        "mean_target": 1.0397207708399179,
+        "zero_rate": 0.5,
+        "mae_baseline": 1.0397207708399179,
+        "mae_xgb": 0.934722554806936,
+        "rmse_xgb": 1.2120539686936516
+      },
+      "Advancements in Battery Materials": {
+        "n": 2,
+        "mean_target": 2.917405368531303,
+        "zero_rate": 0.0,
+        "mae_baseline": 2.407263892115501,
+        "mae_xgb": 0.934592248642997,
+        "rmse_xgb": 1.1201074442176104
+      },
+      "Sleep and related disorders": {
+        "n": 2,
+        "mean_target": 0.34657359027997264,
+        "zero_rate": 0.5,
+        "mae_baseline": 0.34657359027997264,
+        "mae_xgb": 0.4277530750049711,
+        "rmse_xgb": 0.4277901819670893
+      },
+      "Endometrial and Cervical Cancer Treatments": {
+        "n": 2,
+        "mean_target": 0.0,
+        "zero_rate": 1.0,
+        "mae_baseline": 0.5101414764158018,
+        "mae_xgb": 0.7390718460083008,
+        "rmse_xgb": 0.8880700044647218
+      },
+      "other": {
+        "n": 294,
+        "mean_target": 0.7610063434135038,
+        "zero_rate": 0.568,
+        "mae_baseline": 0.8304133470074904,
+        "mae_xgb": 0.503822214018698,
+        "rmse_xgb": 0.8021188418982003
+      }
+    }
+  },
+  "zero_inflation": {
+    "test_rows_zero_target": 201,
+    "test_rows_nonzero_target": 133,
+    "mae_baseline_zero": 0.5101414764158019,
+    "mae_baseline_nonzero": 1.250272237058638,
+    "mae_xgb_zero": 0.2054347920958972,
+    "mae_xgb_nonzero": 0.8766276133724271
+  },
+  "feature_importance": {
+    "feature_importances": [
+      {
+        "feature": "referenced_works_count",
+        "importance": 0.09278441965579987
+      },
+      {
+        "feature": "institutions_count",
+        "importance": 0.06464578211307526
+      },
+      {
+        "feature": "venue_name_ChemInform",
+        "importance": 0.031024033203721046
+      },
+      {
+        "feature": "language_en",
+        "importance": 0.029672900214791298
+      },
+      {
+        "feature": "authors_count",
+        "importance": 0.026413794606924057
+      },
+      {
+        "feature": "primary_topic_Web visibility and informetrics",
+        "importance": 0.022119568660855293
+      },
+      {
+        "feature": "venue_name_Metrika",
+        "importance": 0.02136332355439663
+      },
+      {
+        "feature": "primary_topic_Polyamine Metabolism and Applications",
+        "importance": 0.0205402635037899
+      },
+      {
+        "feature": "venue_name_Blood",
+        "importance": 0.01925050839781761
+      },
+      {
+        "feature": "primary_topic_Organ Transplantation Techniques and Outcomes",
+        "importance": 0.01895369030535221
+      },
+      {
+        "feature": "venue_name_Automation in Construction",
+        "importance": 0.018111951649188995
+      },
+      {
+        "feature": "venue_name_Proceedings of MOL2NET, International Conference on Multidisciplinary Sciences",
+        "importance": 0.018063362687826157
+      },
+      {
+        "feature": "venue_name_Preparative Biochemistry & Biotechnology",
+        "importance": 0.0171350184828043
+      },
+      {
+        "feature": "primary_topic_Populism, Right-Wing Movements",
+        "importance": 0.01658109575510025
+      },
+      {
+        "feature": "open_access_is_oa_False",
+        "importance": 0.01542602013796568
+      },
+      {
+        "feature": "publication_year",
+        "importance": 0.015186384320259094
+      },
+      {
+        "feature": "venue_name_Race & Class",
+        "importance": 0.014923939481377602
+      },
+      {
+        "feature": "venue_name_Royal Society Open Science",
+        "importance": 0.01452187541872263
+      },
+      {
+        "feature": "venue_name_AL-MUKHTAR JOURNAL OF SCIENCES",
+        "importance": 0.013980487361550331
+      },
+      {
+        "feature": "venue_name_Nigerian Journal of Clinical Practice",
+        "importance": 0.013604343868792057
+      },
+      {
+        "feature": "venue_name_Scientometrics",
+        "importance": 0.013530951924622059
+      },
+      {
+        "feature": "venue_name_Proceedings of the VLDB Endowment",
+        "importance": 0.013527307659387589
+      },
+      {
+        "feature": "venue_name_Pediatric Surgery International",
+        "importance": 0.013525075279176235
+      },
+      {
+        "feature": "venue_name_IEEE Transactions on Industrial Electronics",
+        "importance": 0.013258498162031174
+      },
+      {
+        "feature": "primary_topic_Crystallography and molecular interactions",
+        "importance": 0.01322309859097004
+      },
+      {
+        "feature": "venue_name_Frontiers in Psychology",
+        "importance": 0.012964109890162945
+      },
+      {
+        "feature": "venue_name_Plant Cell Tissue and Organ Culture (PCTOC)",
+        "importance": 0.011864570900797844
+      },
+      {
+        "feature": "primary_topic_Carbon Dioxide Capture Technologies",
+        "importance": 0.011758454144001007
+      },
+      {
+        "feature": "primary_topic_Vehicle Routing Optimization Methods",
+        "importance": 0.011459172703325748
+      },
+      {
+        "feature": "primary_topic_Urban and Freight Transport Logistics",
+        "importance": 0.011408493854105473
+      }
+    ],
+    "note": "XGBoost gain-based importance"
+  },
+  "other_benchmarks": {}
+}

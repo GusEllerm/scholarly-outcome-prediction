@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: install lint format test clean run-example run-pilot run-pilot-time run-representative-pilot run-temporal-pilot validate-representative-pilot validate-temporal-pilot validate-latest-pilot profile-representative-pilot profile-temporal-pilot
+.PHONY: install lint format test clean run-example run-pilot run-pilot-time run-representative-pilot run-temporal-pilot run-representative-h2 run-temporal-h2 validate-representative-pilot validate-temporal-pilot validate-latest-pilot profile-representative-pilot profile-temporal-pilot temporal-h2-review
 
 install:
 	uv sync --extra dev
@@ -87,3 +87,8 @@ profile-representative-pilot:
 # Regenerate diagnostics for the temporal pilot dataset.
 profile-temporal-pilot:
 	uv run python scripts/generate_diagnostics.py --processed data/processed/openalex_temporal_articles_1000.parquet --dataset-id openalex_temporal_articles_1000
+
+# Generate temporal H2 benchmark review (population, baseline vs XGBoost, subgroups, feature importance).
+# Requires processed temporal data and optionally pre-trained models from make run-temporal-h2.
+temporal-h2-review:
+	uv run python scripts/run_temporal_h2_review.py
