@@ -251,16 +251,6 @@ make profile-representative-pilot
 make profile-temporal-pilot
 ```
 
-Other targets:
-
-```bash
-make install
-make lint
-make format
-make test
-make run-example
-```
-
 ## Run artifacts
 
 Each evaluation run writes a **self-describing** JSON file under `artifacts/metrics/` that includes: experiment name, target name/transform/mode, model name and params, feature lists, split settings, train/test sizes, dataset id, run timestamp, and the requested metrics (e.g. RMSE, MAE, R²). For **calendar-horizon** runs, metrics JSON also includes target semantics description, eligibility counts, target zero-rate, and how missing/empty `counts_by_year` is handled. See `docs/architecture.md` for the full list.
@@ -351,35 +341,6 @@ Every major diagnostic JSON includes `report_scope`, `report_name`, and `generat
 
 Design-scoped reports do not include `run_id`. They may include a `config_paths_note` or `design_note` stating that config paths are not applicable or that findings are inferred from code, not from a runtime trace.
 
-### Dataset profile vs target profile
-
-Do not confuse **dataset-level** and **target-level** reporting.
-
-- **Dataset profile** (`dataset_profile.json`) describes the **processed dataset** as stored on disk: row count, publication year range, **current cumulative** `cited_by_count` distribution, feature missingness, venue/topic/language diversity. It does **not** apply eligibility filtering or describe the actual supervised-learning label used in an experiment.
-- **Target profile** (`target_profile.json`, generated for calendar-horizon runs) describes the **modeling target**: target config (name, mode, source, horizon years, include publication year, transform), eligibility summary (rows raw vs eligible vs excluded for incomplete horizon), **untransformed and transformed target distribution**, zero-target rate, and explicit handling of missing/empty `counts_by_year`. It also reports how many rows had empty/missing `counts_by_year` and, among those, how many had `cited_by_count == 0` vs `cited_by_count > 0`, so reviewers see that empty `counts_by_year` is not equivalent to “no citations.”
-
-**Why `cited_by_count` ≠ calendar-horizon target:** Dataset-level `cited_by_count` is the snapshot’s cumulative citation count. The calendar-horizon target is the sum of citations over a fixed number of **calendar years** from `counts_by_year`. They are different quantities; the target profile reports the one actually used for training and evaluation.
-
-**How empty/missing `counts_by_year` is handled:** Missing or empty `counts_by_year_json` is explicitly treated as a **zero yearly-count series**: each year in the horizon contributes 0, so the target value for such rows is 0. This is documented in `features/targets.py` and summarized in the target profile. Calendar-horizon targets remain an **approximation** (calendar-year granularity, not exact month-level windows; eligibility depends on the snapshot’s latest citation year).
-
-### Validation severity
-
-Dataset validation outputs include a `messages` list with `severity` per message:
-
-- **`error`** — Validation failed (e.g. row count below minimum, venue missingness too high).
-- **`warning`** — Concern (e.g. single year only, high median citations for representative mode).
-- **`informational`** — Note only.
-- **`expected`** — Matches config (e.g. article-only corpus when `work_types: [article]`); not a warning.
-
-When the data config sets `work_types: [article]`, a single-type (article) corpus is reported as expected, not as “single type only”.
-
-### Verifying a run
-
-1. After `make run-representative-pilot` (or any `make run-*`), the CLI writes a **run-scoped** trace to `artifacts/diagnostics/pipeline_trace.json` and generates all other diagnostics in the same directory (profile, artifact audit, design trace, etc.). Check `pipeline_trace.json`: `report_scope` should be `run`; `data_config` should list the fetch controls (work_types, stratify_by_year, use_random_sample, effective_sampling_strategy); `experiments` should list each experiment’s config path, target, split_kind, and effective_processed_path.
-2. Check `artifacts/reports/{dataset_name}_dataset_validation.json`: when produced by the pipeline it is run-scoped (has `run_id`); when produced by `validate` only it is dataset-scoped (has `report_id`, no `run_id`). Check `passed`, `errors`, `warnings`, and `messages` (with severity). For article-only representative runs, you should see an `expected` message, not a “single type only” warning.
-3. Check `artifacts/diagnostics/run_artifact_audit.json`: when produced by `generate_diagnostics` it is dataset-scoped (`audit_id`, no `run_id`). Check `metrics_found` / `model_found`, `baseline_xgb_agreement`, and `consistency_checks` in the run-scoped pipeline trace.
-4. Cross-check: pipeline trace `consistency_checks` (dataset_id_match, processed_path_match, validation_input_match, baseline_xgb_metadata_match, artifacts_present) and `config_paths` (actual resolved paths). Metrics JSONs should have the same `effective_dataset_id` and `effective_processed_path` as the run.
-
 ## Data and artifact conventions
 
 ### Raw data
@@ -427,57 +388,4 @@ Those are future layers once the basic research pipeline is stable.
 
 **Note for macOS users:** XGBoost may require the OpenMP runtime. If you see an error loading `libxgboost.dylib`, run `brew install libomp`. Tests that require XGBoost will be skipped if the library cannot be loaded.
 
-## Roadmap
 
-### Phase 1: bootstrap
-
-- [x] OpenAlex fetcher
-- [x] normalization pipeline
-- [x] metadata feature builder
-- [x] baseline regressor
-- [x] XGBoost regressor
-- [x] evaluation + saved metrics
-- [x] tests + CLI
-
-### Phase 2: stronger experiments
-
-- [ ] larger datasets
-- [ ] time-aware splits
-- [ ] classification targets and citation bins
-- [ ] additional model families
-- [ ] better feature reporting and importances
-
-### Phase 3: broader outcomes
-
-- [ ] venue prediction
-- [ ] patent citation prediction
-- [ ] downstream translational impact proxies
-- [ ] multi-task or ensemble experimentation
-
-### Phase 4: scale and reproducibility hardening
-
-- [ ] containerized execution
-- [ ] cloud training paths
-- [ ] richer experiment tracking
-- [ ] benchmark datasets and published releases
-
-## Development expectations
-
-This repo should stay disciplined.
-
-Core expectations:
-
-- keep notebooks out of core logic
-- keep configs explicit
-- prefer small, composable modules
-- add tests when adding pipeline stages
-- avoid premature abstractions
-- make failures easy to diagnose
-
-## License
-
-Choose an open-source license appropriate for the project, such as MIT or Apache-2.0.
-
-## Status
-
-Early bootstrap stage. The architecture is being set up before scaling to broader outcome prediction tasks.
