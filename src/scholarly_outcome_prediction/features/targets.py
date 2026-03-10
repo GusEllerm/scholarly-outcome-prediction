@@ -65,6 +65,52 @@ def _safe_int(v: Any) -> int | None:
         return None
 
 
+def _is_empty_or_missing_counts_by_year(val: Any) -> bool:
+    """True if counts_by_year value is null, NaN, empty string, or parses to empty dict."""
+    if val is None or (isinstance(val, float) and np.isnan(val)):
+        return True
+    if isinstance(val, str) and not val.strip():
+        return True
+    d = _parse_counts_by_year(val)
+    return len(d) == 0
+
+
+def compute_target_construction_diagnostics(
+    df: pd.DataFrame,
+    counts_by_year_col: str = "counts_by_year_json",
+    cited_by_count_col: str = "cited_by_count",
+) -> dict[str, Any]:
+    """
+    From the raw (pre-eligibility) DataFrame, count rows by counts_by_year and cited_by_count.
+
+    Used for target-level reporting: surfaces how many rows have empty/missing counts_by_year,
+    and of those how many have cited_by_count zero vs positive (empty counts_by_year is not
+    equivalent to "no citations").
+    """
+    if counts_by_year_col not in df.columns:
+        return {
+            "n_rows_empty_or_missing_counts_by_year": 0,
+            "n_empty_counts_and_cited_by_count_zero": 0,
+            "n_empty_counts_but_cited_by_count_positive": 0,
+        }
+    empty_missing = df[counts_by_year_col].apply(_is_empty_or_missing_counts_by_year)
+    n_empty = int(empty_missing.sum())
+    if cited_by_count_col not in df.columns:
+        return {
+            "n_rows_empty_or_missing_counts_by_year": n_empty,
+            "n_empty_counts_and_cited_by_count_zero": None,
+            "n_empty_counts_but_cited_by_count_positive": None,
+        }
+    cited = df[cited_by_count_col]
+    n_zero = int((empty_missing & (cited == 0)).sum())
+    n_positive = int((empty_missing & (cited > 0)).sum())
+    return {
+        "n_rows_empty_or_missing_counts_by_year": n_empty,
+        "n_empty_counts_and_cited_by_count_zero": n_zero,
+        "n_empty_counts_but_cited_by_count_positive": n_positive,
+    }
+
+
 def compute_calendar_horizon_target(
     publication_year: int | None,
     counts_by_year: dict[int, int],
@@ -189,6 +235,7 @@ def prepare_df_for_target(
     if target_mode != "calendar_horizon" or horizon_years is None or horizon_years < 1:
         return df.copy(), eligibility_info
 
+    counts_by_year_col = "counts_by_year_json"
     target_series, eligible_series, n_eligible, n_excluded = build_calendar_horizon_target_column(
         df,
         horizon_years=horizon_years,
@@ -201,6 +248,19 @@ def prepare_df_for_target(
     eligibility_info["max_available_citation_year"] = max_year
     eligibility_info["horizon_years"] = horizon_years
     eligibility_info["include_publication_year"] = include_publication_year
+    diagnostics = compute_target_construction_diagnostics(df, counts_by_year_col=counts_by_year_col)
+    eligibility_info["target_construction_diagnostics"] = diagnostics
+    # Among eligible rows, how many have target 0 because counts_by_year was empty/missing
+    empty_missing_mask = df[counts_by_year_col].apply(_is_empty_or_missing_counts_by_year)
+    eligible_with_zero_target = eligible_series & (target_series == 0)
+    eligibility_info["n_eligible_empty_counts_produced_zero_target"] = int(
+        (eligible_with_zero_target & empty_missing_mask).sum()
+    )
+    last_year_needed = "publication_year + horizon_years"
+    eligibility_info["eligibility_cutoff_description"] = (
+        f"Row eligible iff {last_year_needed} <= max_available_citation_year "
+        f"(max_available_citation_year={max_year} from observed counts_by_year in this dataset)."
+    )
 
     out = df.loc[eligible_series].copy()
     out[target_name] = target_series.loc[eligible_series].values

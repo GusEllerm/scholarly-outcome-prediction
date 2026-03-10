@@ -57,6 +57,18 @@ def test_parse_counts_by_year_null_maps_to_zero_series() -> None:
     assert compute_calendar_horizon_target(2019, _parse_counts_by_year(None), 2, True) == 0
 
 
+def test_h2_include_publication_year_sums_three_years() -> None:
+    """Evidence: horizon_years=2 + include_publication_year=True sums 3 years (Y, Y+1, Y+2), not 2.
+    See docs/calendar_horizon_semantics_diagnosis.md."""
+    publication_year = 2018
+    counts = {2018: 1, 2019: 2, 2020: 3}
+    t = compute_calendar_horizon_target(publication_year, counts, horizon_years=2, include_publication_year=True)
+    assert t == 1 + 2 + 3
+    # So years summed are 2018, 2019, 2020 (3 years). Eligibility must require data through 2020.
+    assert is_horizon_eligible(2018, 2020, 2, True) is True
+    assert is_horizon_eligible(2018, 2019, 2, True) is False
+
+
 def test_is_horizon_eligible() -> None:
     """Eligible when last_year_needed (pub_year + horizon_years) <= max_available_citation_year."""
     assert is_horizon_eligible(2018, 2020, 2, True) is True   # need through 2020

@@ -40,6 +40,8 @@ def build_run_metadata(
     horizon_years: int | None = None,
     include_publication_year: bool | None = None,
     target_eligibility: dict[str, Any] | None = None,
+    target_semantics_description: str | None = None,
+    target_zero_rate: float | None = None,
 ) -> dict[str, Any]:
     """Build a self-describing run metadata dict for artifact persistence."""
     meta = {
@@ -79,6 +81,10 @@ def build_run_metadata(
         meta["include_publication_year"] = include_publication_year
     if target_eligibility is not None:
         meta["target_eligibility"] = target_eligibility
+    if target_semantics_description is not None:
+        meta["target_semantics_description"] = target_semantics_description
+    if target_zero_rate is not None:
+        meta["target_zero_rate"] = target_zero_rate
     return meta
 
 

@@ -365,6 +365,11 @@ def run_pipeline_from_configs(
         raise typer.Exit(1)
     logger.info("Validation passed; report at %s", validation_json_path)
 
+    diag_dir = root / "artifacts" / "diagnostics"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    target_profile_path = None
+    last_eligibility_info = None
+
     for cfg in (base_cfg, xgb_cfg):
         set_global_seed(cfg.split.random_state)
         full_df = read_parquet(processed_path)
@@ -380,6 +385,7 @@ def run_pipeline_from_configs(
                 horizon_years=getattr(cfg.target, "horizon_years", None),
                 include_publication_year=getattr(cfg.target, "include_publication_year", True),
             )
+            last_eligibility_info = eligibility_info
         X, y = build_feature_matrix(
             full_df,
             numeric_features=num_feat,
@@ -389,6 +395,28 @@ def run_pipeline_from_configs(
         )
         full = pd.concat([X, y], axis=1)
         full = full.dropna(subset=[cfg.target.name])
+        # Generate target-level profile once per run for calendar_horizon (on first experiment)
+        if getattr(cfg.target, "target_mode", None) == "calendar_horizon" and cfg.experiment_name == base_cfg.experiment_name:
+            from scholarly_outcome_prediction.diagnostics.target_profile import (
+                build_target_profile,
+                write_target_profile,
+                write_target_profile_md,
+            )
+            untransformed = full_df[cfg.target.name]
+            profile = build_target_profile(
+                eligibility_info,
+                cfg.target,
+                untransformed,
+                transformed_target_series=y,
+                run_id=run_instance_id,
+                dataset_id=dataset_id,
+                experiment_name=cfg.experiment_name,
+                target_name=cfg.target.name,
+            )
+            target_profile_path = diag_dir / "target_profile.json"
+            write_target_profile(profile, target_profile_path)
+            write_target_profile_md(profile, diag_dir / "target_profile.md")
+            logger.info("Target profile written to %s", target_profile_path)
         train_df, test_df = train_test_split_df(
             full,
             test_size=cfg.split.test_size,
@@ -417,6 +445,14 @@ def run_pipeline_from_configs(
         experiment_config_path_used = (
             baseline_config_path if cfg.experiment_name == base_cfg.experiment_name else xgb_config_path
         )
+        target_semantics_description = None
+        target_zero_rate = None
+        if getattr(cfg.target, "target_mode", None) == "calendar_horizon":
+            from scholarly_outcome_prediction.diagnostics.target_profile import build_target_semantics_description
+            target_semantics_description = build_target_semantics_description(cfg.target, eligibility_info)
+            ser = full_df[cfg.target.name].dropna()
+            if len(ser):
+                target_zero_rate = round(float((ser == 0).sum() / len(ser)), 4)
         run_meta = build_run_metadata(
             experiment_name=cfg.experiment_name,
             target_name=cfg.target.name,
@@ -444,6 +480,8 @@ def run_pipeline_from_configs(
             horizon_years=getattr(cfg.target, "horizon_years", None),
             include_publication_year=getattr(cfg.target, "include_publication_year", None),
             target_eligibility=eligibility_info if eligibility_info else None,
+            target_semantics_description=target_semantics_description,
+            target_zero_rate=target_zero_rate,
         )
         meta_dir = root / "artifacts" / "metrics"
         meta_dir.mkdir(parents=True, exist_ok=True)
@@ -451,8 +489,6 @@ def run_pipeline_from_configs(
         logger.info("%s metrics: %s", cfg.experiment_name, metrics)
 
     # Run-scoped pipeline trace
-    diag_dir = root / "artifacts" / "diagnostics"
-    diag_dir.mkdir(parents=True, exist_ok=True)
     metrics_paths = [meta_dir / f"{c.experiment_name}.json" for c in (base_cfg, xgb_cfg)]
     model_paths = [root / "artifacts" / "models" / f"{c.experiment_name}.joblib" for c in (base_cfg, xgb_cfg)]
     from scholarly_outcome_prediction.diagnostics.pipeline_trace import build_pipeline_trace_from_run_context
@@ -476,6 +512,12 @@ def run_pipeline_from_configs(
         metrics_paths=metrics_paths,
         model_paths=model_paths,
         dataset_id=dataset_id,
+        target_profile_path=target_profile_path,
+        target_eligibility_summary=last_eligibility_info,
+        target_mode=getattr(base_cfg.target, "target_mode", None),
+        target_source=getattr(base_cfg.target, "source", None),
+        horizon_years=getattr(base_cfg.target, "horizon_years", None),
+        include_publication_year=getattr(base_cfg.target, "include_publication_year", None),
     )
     from scholarly_outcome_prediction.utils.io import save_json
     save_json(trace, diag_dir / "pipeline_trace.json")

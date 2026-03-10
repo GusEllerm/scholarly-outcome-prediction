@@ -109,6 +109,12 @@ def build_pipeline_trace_from_run_context(
     metrics_paths: list[Path],
     model_paths: list[Path],
     dataset_id: str | None = None,
+    target_profile_path: Path | None = None,
+    target_eligibility_summary: dict[str, Any] | None = None,
+    target_mode: str | None = None,
+    target_source: str | None = None,
+    horizon_years: int | None = None,
+    include_publication_year: bool | None = None,
 ) -> dict[str, Any]:
     """
     Build a run-scoped pipeline trace with effective fetch controls, experiment details,
@@ -263,6 +269,24 @@ def build_pipeline_trace_from_run_context(
             baseline_xgb_match = "unknown"
     consistency_checks["baseline_xgb_metadata_match"] = baseline_xgb_match
 
+    # Target-level block for calendar_horizon runs
+    target_block: dict[str, Any] = {}
+    if target_mode == "calendar_horizon":
+        target_block = {
+            "target_mode": target_mode,
+            "target_source": target_source,
+            "horizon_years": horizon_years,
+            "include_publication_year": include_publication_year,
+            "target_profile_path": str(target_profile_path) if target_profile_path else None,
+            "eligibility_summary": {
+                "n_rows_raw": target_eligibility_summary.get("n_rows_raw") if target_eligibility_summary else None,
+                "n_eligible": target_eligibility_summary.get("n_eligible") if target_eligibility_summary else None,
+                "n_excluded_horizon_incomplete": target_eligibility_summary.get("n_excluded_horizon_incomplete") if target_eligibility_summary else None,
+                "max_available_citation_year": target_eligibility_summary.get("max_available_citation_year") if target_eligibility_summary else None,
+                "eligibility_cutoff_description": target_eligibility_summary.get("eligibility_cutoff_description") if target_eligibility_summary else None,
+            } if target_eligibility_summary else None,
+        }
+
     return {
         **meta,
         "data_config": data_block,
@@ -272,4 +296,5 @@ def build_pipeline_trace_from_run_context(
         "cross_checks": cross_checks,
         "metrics_paths": [str(p) for p in metrics_paths],
         "model_paths": [str(p) for p in model_paths],
+        **({"target": target_block} if target_block else {}),
     }

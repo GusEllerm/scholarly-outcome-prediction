@@ -263,7 +263,7 @@ make run-example
 
 ## Run artifacts
 
-Each evaluation run writes a **self-describing** JSON file under `artifacts/metrics/` that includes: experiment name, target name/transform/mode, model name and params, feature lists, split settings, train/test sizes, dataset id, run timestamp, and the requested metrics (e.g. RMSE, MAE, R²). See `docs/architecture.md` for the full list.
+Each evaluation run writes a **self-describing** JSON file under `artifacts/metrics/` that includes: experiment name, target name/transform/mode, model name and params, feature lists, split settings, train/test sizes, dataset id, run timestamp, and the requested metrics (e.g. RMSE, MAE, R²). For **calendar-horizon** runs, metrics JSON also includes target semantics description, eligibility counts, target zero-rate, and how missing/empty `counts_by_year` is handled. See `docs/architecture.md` for the full list.
 
 ## Project diagnostics and transparency
 
@@ -277,7 +277,8 @@ The repo includes a **diagnostics** pass to keep the pipeline inspectable and de
   Optional: `--processed path/to/processed.parquet` and `--dataset-id ID` to profile a specific dataset (default: `data/processed/openalex_pilot.parquet`). This writes under `artifacts/diagnostics/`:
   - `component_inventory.json` — major modules and critical path for `run` (design-scoped)
   - `pipeline_trace_design.json` — design-scoped step trace. When you run the pipeline (`make run-representative-pilot` or any `make run-*`), the CLI writes **both** the run-scoped `pipeline_trace.json` and all other diagnostics (profile, artifact audit, design trace, etc.) in one go, so you get a full set without running this script.
-  - `dataset_profile.json` — row count, publication year, target stats, missingness, categorical tops (dataset-scoped; uses canonical stats shared with validation)
+  - `dataset_profile.json` — row count, publication year, **dataset-level** citation stats (`cited_by_count`), missingness, categorical tops (dataset-scoped; uses canonical stats shared with validation)
+  - `target_profile.json` — **target-level** report for calendar-horizon runs: eligibility filtering, untransformed/transformed target distribution, zero-rate, and empty/missing `counts_by_year` diagnostics (run-scoped). Companion `target_profile.md` for human reading.
   - `missingness_summary.csv` — per-column missing count and percent
   - `feature_usage_report.json` — normalized schema vs config feature lists, used/unused, leakage-risky columns
   - `run_artifact_audit.json` — which metrics/models exist, metadata completeness, baseline vs xgb agreement (run- or dataset-scoped)
@@ -300,6 +301,17 @@ Every major diagnostic JSON includes `report_scope`, `report_name`, and `generat
 - **`audit_id`** — Identifies an audit artifact (e.g. artifact audit). Used in dataset-scoped or design-scoped audits instead of `run_id`.
 
 Design-scoped reports do not include `run_id`. They may include a `config_paths_note` or `design_note` stating that config paths are not applicable or that findings are inferred from code, not from a runtime trace.
+
+### Dataset profile vs target profile
+
+Do not confuse **dataset-level** and **target-level** reporting.
+
+- **Dataset profile** (`dataset_profile.json`) describes the **processed dataset** as stored on disk: row count, publication year range, **current cumulative** `cited_by_count` distribution, feature missingness, venue/topic/language diversity. It does **not** apply eligibility filtering or describe the actual supervised-learning label used in an experiment.
+- **Target profile** (`target_profile.json`, generated for calendar-horizon runs) describes the **modeling target**: target config (name, mode, source, horizon years, include publication year, transform), eligibility summary (rows raw vs eligible vs excluded for incomplete horizon), **untransformed and transformed target distribution**, zero-target rate, and explicit handling of missing/empty `counts_by_year`. It also reports how many rows had empty/missing `counts_by_year` and, among those, how many had `cited_by_count == 0` vs `cited_by_count > 0`, so reviewers see that empty `counts_by_year` is not equivalent to “no citations.”
+
+**Why `cited_by_count` ≠ calendar-horizon target:** Dataset-level `cited_by_count` is the snapshot’s cumulative citation count. The calendar-horizon target is the sum of citations over a fixed number of **calendar years** from `counts_by_year`. They are different quantities; the target profile reports the one actually used for training and evaluation.
+
+**How empty/missing `counts_by_year` is handled:** Missing or empty `counts_by_year_json` is explicitly treated as a **zero yearly-count series**: each year in the horizon contributes 0, so the target value for such rows is 0. This is documented in `features/targets.py` and summarized in the target profile. Calendar-horizon targets remain an **approximation** (calendar-year granularity, not exact month-level windows; eligibility depends on the snapshot’s latest citation year).
 
 ### Validation severity
 

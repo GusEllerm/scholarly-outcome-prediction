@@ -88,6 +88,12 @@ def audit_run_artifacts(
                 "target_name": data.get("target_name"),
                 "target_mode": data.get("target_mode"),
                 "target_transform": data.get("target_transform"),
+                "target_source": data.get("target_source"),
+                "horizon_years": data.get("horizon_years"),
+                "include_publication_year": data.get("include_publication_year"),
+                "target_zero_rate": data.get("target_zero_rate"),
+                "target_eligibility_n_eligible": data.get("target_eligibility", {}).get("n_eligible") if isinstance(data.get("target_eligibility"), dict) else None,
+                "target_eligibility_n_excluded": data.get("target_eligibility", {}).get("n_excluded_horizon_incomplete") if isinstance(data.get("target_eligibility"), dict) else None,
                 "split_kind": data.get("split_kind"),
             }
         except Exception as e:
@@ -97,7 +103,11 @@ def audit_run_artifacts(
     baseline_xgb_agreement: dict[str, Any] = {}
     if len(metrics_files) >= 2:
         by_name = {p.stem: load_json(p) for p in metrics_files if p.exists()}
-        keys_to_agree = ["effective_dataset_id", "effective_processed_path", "split_kind", "target_name", "target_mode", "target_transform"]
+        keys_to_agree = [
+            "effective_dataset_id", "effective_processed_path", "split_kind",
+            "target_name", "target_mode", "target_transform",
+            "target_source", "horizon_years", "include_publication_year",
+        ]
         names = list(by_name.keys())
         for key in keys_to_agree:
             vals = [by_name.get(n, {}).get(key) for n in names]
