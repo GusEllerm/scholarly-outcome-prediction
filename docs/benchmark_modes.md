@@ -94,16 +94,17 @@ Beyond the trivial (constant-mean) baseline, the suite includes stronger baselin
 | Model | Description | Config example |
 |-------|-------------|----------------|
 | **baseline** | Constant (training mean) | `baseline_temporal_h2.yaml` |
-| **ridge** | Regularized linear regression on the same metadata features | `ridge_temporal_h2.yaml` |
-| **year_conditioned** | Per–publication-year median (or mean) of the training target; unseen years get global median. Tests whether the model is mostly exploiting time/cohort. | `year_conditioned_temporal_h2.yaml` |
+| **ridge** | Regularized linear regression on the same metadata features; **run across all four benchmark modes** for fair comparison. | `ridge_representative.yaml`, `ridge_temporal.yaml`, `ridge_representative_h2.yaml`, `ridge_temporal_h2.yaml` |
+| **year_conditioned** | **Diagnostic only.** Per–publication-year median; unseen years get global median. Under temporal split, test years are unseen so it predicts a constant — do not treat as a primary baseline. See `artifacts/reports/year_conditioned_baseline_review.md`. | `year_conditioned_temporal_h2.yaml` |
 | **hurdle** | Two-stage: zero vs nonzero classifier, then Ridge on positive targets only. | `hurdle_temporal_h2.yaml`; `make run-temporal-h2-hurdle` |
 | **xgboost** | Gradient-boosted trees. | `xgb_temporal_h2.yaml` |
 
-**Makefile (temporal H2):**
+**Makefile (temporal H2 and ridge across modes):**
 
 - `make run-temporal-h2` — Full pipeline: data + **baseline** + **xgboost** (writes `baseline_temporal_h2`, `xgb_temporal_h2` metrics).
-- `make run-temporal-h2-baselines` — Same data, **ridge** + **year_conditioned** (writes `ridge_temporal_h2`, `year_conditioned_temporal_h2` metrics). Run after `run-temporal-h2` so all four model metrics exist for comparison.
+- `make run-temporal-h2-baselines` — Same data, **ridge** + **year_conditioned** (writes `ridge_temporal_h2`, `year_conditioned_temporal_h2` metrics). Run after `run-temporal-h2`.
 - `make run-temporal-h2-hurdle` — Same data, **hurdle** baseline (writes `hurdle_temporal_h2` metrics). Run after `run-temporal-h2`.
+- **Ridge for other modes** (train + evaluate only; data must exist): `make run-representative-pilot-ridge`, `make run-temporal-pilot-ridge`, `make run-representative-h2-ridge` (run after the corresponding `run-representative-pilot`, `run-temporal-pilot`, `run-representative-h2`).
 
 **Run the whole benchmark suite:**
 
@@ -113,16 +114,14 @@ make run-full-benchmark
 
 This runs in order:
 
-1. **Representative proxy** — `run-representative-pilot` (representative data, proxy target, baseline + xgboost).
-2. **Representative H2** — `run-representative-h2` (same representative data, 2-year calendar-horizon, baseline + xgboost).
-3. **Temporal proxy** — `run-temporal-pilot` (temporal data, proxy target, baseline + xgboost).
-4. **Temporal H2** — `run-temporal-h2` (temporal data, 2-year calendar-horizon, baseline + xgboost).
-5. **Temporal H2 baselines** — `run-temporal-h2-baselines` (ridge + year_conditioned on temporal H2).
-6. **Temporal H2 hurdle** — `run-temporal-h2-hurdle` (hurdle baseline on temporal H2).
-7. **Temporal H2 ablations** — `run-temporal-h2-ablations` (five ablation experiments).
-8. **benchmark-analysis** — Writes `artifacts/reports/benchmark_comparison.json` and `.md`, and `ablation_review.json` and `.md`.
+1. **Representative proxy** — `run-representative-pilot` then `run-representative-pilot-ridge` (baseline + xgboost + ridge).
+2. **Representative H2** — `run-representative-h2` then `run-representative-h2-ridge` (baseline + xgboost + ridge).
+3. **Temporal proxy** — `run-temporal-pilot` then `run-temporal-pilot-ridge` (baseline + xgboost + ridge).
+4. **Temporal H2** — `run-temporal-h2` then `run-temporal-h2-baselines` (ridge + year_conditioned) and `run-temporal-h2-hurdle`.
+5. **Temporal H2 ablations** — `run-temporal-h2-ablations` (coarse + fine-grained numeric ablations).
+6. **benchmark-analysis** — Writes `benchmark_comparison` and `ablation_review` (with model family, diagnostic labels, interpretation tags).
 
-After this, the comparison report has rows for all four benchmark modes (with baseline and xgboost at least), and temporal_h2 also has ridge, year_conditioned, and hurdle. You can run individual steps if you only need a subset.
+After this, the comparison report has rows for all four benchmark modes with baseline, xgboost, and **ridge**; temporal_h2 also has year_conditioned (diagnostic) and hurdle. Missing combinations are listed explicitly.
 
 
 ---
@@ -137,7 +136,7 @@ After running one or more benchmark modes, a single command aggregates metrics a
 - **Input:** All `artifacts/metrics/*.json` files.
 - **Output:** `artifacts/reports/benchmark_comparison.json` and `benchmark_comparison.md`.
 
-The report has one row per **(benchmark mode, model)** with primary metrics (RMSE, MAE, R²), test zero-rate, and MAE on zero-target vs nonzero-target subsets. The four benchmark modes considered are:
+The report has one row per **(benchmark mode, model)** with primary metrics (RMSE, MAE, R²), test zero-rate, MAE on zero-target vs nonzero-target subsets, **model family** (e.g. trivial baseline, linear baseline, diagnostic baseline), and **is_diagnostic_only** (so the year-conditioned baseline is interpreted cautiously). The four benchmark modes considered are:
 
 - **representative_proxy** — Representative data, proxy target.
 - **temporal_proxy** — Temporal split, proxy target.
@@ -150,23 +149,18 @@ If a combination was never run, it appears in a **Missing** list (no silent skip
 
 Ablations remove specific feature groups to see what signal the benchmark is using. Configs live in `configs/experiments/ablations/`:
 
-| Ablation | Features removed |
-|----------|------------------|
-| `no_publication_year` | `publication_year` |
-| `no_venue_name` | `venue_name` |
-| `no_primary_topic` | `primary_topic` |
-| `numeric_only` | All categorical features |
-| `categorical_only` | All numeric features |
+- **Coarse:** `no_publication_year`, `no_venue_name`, `no_primary_topic`, `numeric_only`, `categorical_only`.
+- **Fine-grained numeric:** `no_referenced_works_count`, `no_authors_count`, `no_institutions_count` — isolate which single numeric feature carries most signal.
 
-Each ablation is a separate experiment (e.g. `xgb_temporal_h2_no_publication_year`). Run them after temporal H2 data exists:
+Each ablation is a separate experiment. Run them after temporal H2 data exists:
 
 ```bash
 make run-temporal-h2          # data + baseline + xgboost
-make run-temporal-h2-ablations   # train + evaluate each ablation config
+make run-temporal-h2-ablations   # train + evaluate all coarse + fine-grained ablations
 make benchmark-analysis       # regenerates comparison + ablation review
 ```
 
-**Ablation review** (`artifacts/reports/ablation_review.json` and `.md`) is produced by the same `benchmark-analysis` command. It lists each ablation run with metrics and **deltas vs the full XGBoost temporal H2 model**, plus a short interpretation (e.g. whether removing a feature group hurts or helps). If no ablation runs exist yet, the report shows a hint explaining how to populate it.
+**Ablation review** (`artifacts/reports/ablation_review.json` and `.md`) is produced by the same `benchmark-analysis` command. It lists each ablation with **ablation_type** (coarse vs numeric_fine), **interpretation_tag** (high / moderate / low impact), metrics and deltas vs the full XGBoost temporal H2 model, and a short interpretation. This lets reviewers see quickly whether `referenced_works_count`, `authors_count`, or `institutions_count` dominates.
 
 ---
 

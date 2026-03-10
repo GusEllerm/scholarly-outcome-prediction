@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: install lint format test clean run-example run-pilot run-pilot-time run-representative-pilot run-temporal-pilot run-representative-h2 run-temporal-h2 run-temporal-h2-baselines run-temporal-h2-hurdle run-temporal-h2-ablations run-full-benchmark validate-representative-pilot validate-temporal-pilot validate-latest-pilot profile-representative-pilot profile-temporal-pilot temporal-h2-review benchmark-analysis
+.PHONY: install lint format test clean run-example run-pilot run-pilot-time run-representative-pilot run-temporal-pilot run-representative-h2 run-temporal-h2 run-temporal-h2-baselines run-temporal-h2-hurdle run-temporal-h2-ablations run-representative-pilot-ridge run-temporal-pilot-ridge run-representative-h2-ridge run-full-benchmark validate-representative-pilot validate-temporal-pilot validate-latest-pilot profile-representative-pilot profile-temporal-pilot temporal-h2-review benchmark-analysis
 
 install:
 	uv sync --extra dev
@@ -82,26 +82,44 @@ run-temporal-h2-hurdle:
 	uv run scholarly-outcome-prediction evaluate --config configs/experiments/hurdle_temporal_h2.yaml
 
 # Run ablation experiments (train + evaluate each). Requires data from make run-temporal-h2.
-# Produces metrics for xgb_temporal_h2_no_publication_year, no_venue_name, no_primary_topic, numeric_only, categorical_only.
+# Coarse + fine-grained numeric (no_referenced_works_count, no_authors_count, no_institutions_count).
 run-temporal-h2-ablations:
 	@echo "Running ablation experiments (data must exist from make run-temporal-h2)..."
 	@for c in configs/experiments/ablations/xgb_temporal_h2_no_publication_year.yaml \
 		configs/experiments/ablations/xgb_temporal_h2_no_venue_name.yaml \
 		configs/experiments/ablations/xgb_temporal_h2_no_primary_topic.yaml \
 		configs/experiments/ablations/xgb_temporal_h2_numeric_only.yaml \
-		configs/experiments/ablations/xgb_temporal_h2_categorical_only.yaml; do \
+		configs/experiments/ablations/xgb_temporal_h2_categorical_only.yaml \
+		configs/experiments/ablations/xgb_temporal_h2_no_referenced_works_count.yaml \
+		configs/experiments/ablations/xgb_temporal_h2_no_authors_count.yaml \
+		configs/experiments/ablations/xgb_temporal_h2_no_institutions_count.yaml; do \
 	  echo "Training and evaluating $$c..."; \
 	  uv run scholarly-outcome-prediction train --config $$c && uv run scholarly-outcome-prediction evaluate --config $$c || exit 1; \
 	done
+
+# Ridge baseline for representative proxy (train + evaluate only; run run-representative-pilot first).
+run-representative-pilot-ridge:
+	uv run scholarly-outcome-prediction train --config configs/experiments/ridge_representative.yaml
+	uv run scholarly-outcome-prediction evaluate --config configs/experiments/ridge_representative.yaml
+
+# Ridge baseline for temporal proxy (train + evaluate only; run run-temporal-pilot first).
+run-temporal-pilot-ridge:
+	uv run scholarly-outcome-prediction train --config configs/experiments/ridge_temporal.yaml
+	uv run scholarly-outcome-prediction evaluate --config configs/experiments/ridge_temporal.yaml
+
+# Ridge baseline for representative H2 (train + evaluate only; run run-representative-h2 first).
+run-representative-h2-ridge:
+	uv run scholarly-outcome-prediction train --config configs/experiments/ridge_representative_h2.yaml
+	uv run scholarly-outcome-prediction evaluate --config configs/experiments/ridge_representative_h2.yaml
 
 # Generate unified benchmark comparison and ablation review from artifacts/metrics.
 benchmark-analysis:
 	uv run scholarly-outcome-prediction benchmark-analysis
 
 # Run the full benchmark suite: all four modes (representative proxy, representative H2, temporal proxy, temporal H2)
-# plus temporal H2 baselines (ridge, year_conditioned, hurdle) and ablations; then generate comparison reports.
-# Each step fetches/prepares data as needed. Expect 4 full pipeline runs + baselines + hurdle + 5 ablation runs.
-run-full-benchmark: run-representative-pilot run-representative-h2 run-temporal-pilot run-temporal-h2 run-temporal-h2-baselines run-temporal-h2-hurdle run-temporal-h2-ablations benchmark-analysis
+# plus ridge for each mode, temporal H2 baselines (ridge, year_conditioned), hurdle, ablations; then comparison reports.
+# Ridge for temporal H2 is included in run-temporal-h2-baselines; ridge for other three modes via run-*-ridge.
+run-full-benchmark: run-representative-pilot run-representative-pilot-ridge run-representative-h2 run-representative-h2-ridge run-temporal-pilot run-temporal-pilot-ridge run-temporal-h2 run-temporal-h2-baselines run-temporal-h2-hurdle run-temporal-h2-ablations benchmark-analysis
 
 # Validate representative pilot dataset.
 validate-representative-pilot:

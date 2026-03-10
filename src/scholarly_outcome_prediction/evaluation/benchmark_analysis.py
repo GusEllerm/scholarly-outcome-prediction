@@ -11,13 +11,26 @@ from scholarly_outcome_prediction.utils.io import load_json, save_json
 # Canonical benchmark modes and target modes for comparison table
 BENCHMARK_MODES = ["representative_proxy", "temporal_proxy", "representative_h2", "temporal_h2"]
 ABLATION_FULL_EXPERIMENT = "xgb_temporal_h2"
+# Coarse = feature-group ablations; numeric_fine = single numeric feature removed
 ABLATION_FEATURES_REMOVED: dict[str, list[str]] = {
     "no_publication_year": ["publication_year"],
     "no_venue_name": ["venue_name"],
     "no_primary_topic": ["primary_topic"],
     "numeric_only": ["type", "language", "venue_name", "primary_topic", "open_access_is_oa"],
     "categorical_only": ["publication_year", "referenced_works_count", "authors_count", "institutions_count"],
+    "no_referenced_works_count": ["referenced_works_count"],
+    "no_authors_count": ["authors_count"],
+    "no_institutions_count": ["institutions_count"],
 }
+ABLATION_TYPE_COARSE = {"no_publication_year", "no_venue_name", "no_primary_topic", "numeric_only", "categorical_only"}
+MODEL_FAMILY: dict[str, str] = {
+    "baseline": "trivial baseline",
+    "ridge": "linear baseline",
+    "year_conditioned": "diagnostic baseline",
+    "hurdle": "hurdle baseline",
+    "xgboost": "tree model",
+}
+DIAGNOSTIC_ONLY_MODELS = {"year_conditioned"}
 
 
 def _infer_benchmark_mode(experiment_name: str, data: dict[str, Any]) -> str | None:
@@ -99,6 +112,8 @@ def build_benchmark_comparison(metrics_list: list[dict[str, Any]]) -> dict[str, 
             "target_mode": _infer_target_mode(exp, data),
             "split_kind": data.get("split_kind"),
             "model_name": model,
+            "model_family": MODEL_FAMILY.get(model, "other"),
+            "is_diagnostic_only": model in DIAGNOSTIC_ONLY_MODELS,
             "experiment_name": exp,
             "rmse": data.get("rmse"),
             "mae": data.get("mae"),
@@ -129,6 +144,11 @@ def build_benchmark_comparison(metrics_list: list[dict[str, Any]]) -> dict[str, 
                 "note": "No metrics artifact found for this combination.",
             })
 
+    interpretation_notes: dict[str, str] = {
+        "ridge": "Ridge is a standard comparator across all four benchmark modes; compare to XGBoost to see if linear baseline remains competitive.",
+        "year_conditioned": "Year-conditioned baseline is a diagnostic only: under temporal split, test years are unseen in training so it predicts global median for all test rows; do not interpret as a strong baseline failure.",
+        "ablation_numeric": "Fine-grained numeric ablations (no_referenced_works_count, no_authors_count, no_institutions_count) show which single numeric features carry most signal; see ablation_review.",
+    }
     return {
         "report_scope": "benchmark_comparison",
         "report_name": "Unified benchmark comparison",
@@ -136,7 +156,8 @@ def build_benchmark_comparison(metrics_list: list[dict[str, Any]]) -> dict[str, 
         "benchmark_modes_compared": BENCHMARK_MODES,
         "rows": rows,
         "missing": missing,
-        "notes": "Eligibility filtering and target semantics (e.g. horizon) apply per run; see run metadata in each metrics JSON.",
+        "interpretation_notes": interpretation_notes,
+        "notes": "Eligibility filtering and target semantics (e.g. horizon) apply per run; see run metadata in each metrics JSON. Models with is_diagnostic_only=true are for interpretation only, not as primary baselines.",
     }
 
 
@@ -159,6 +180,8 @@ def build_ablation_review(metrics_list: list[dict[str, Any]]) -> dict[str, Any]:
             "ablation_name": name,
             "experiment_name": exp,
             "features_removed": features_removed,
+            "ablation_type": "coarse" if name in ABLATION_TYPE_COARSE else "numeric_fine",
+            "benchmark_mode": "temporal_h2",
             "rmse": data.get("rmse"),
             "mae": data.get("mae"),
             "r2": data.get("r2"),
@@ -174,6 +197,7 @@ def build_ablation_review(metrics_list: list[dict[str, Any]]) -> dict[str, Any]:
         else:
             row["delta_rmse"] = row["delta_mae"] = row["delta_r2"] = None
         row["interpretation"] = _ablation_interpretation(name, row)
+        row["interpretation_tag"] = _ablation_interpretation_tag(row)
         ablations.append(row)
 
     return {
@@ -185,8 +209,8 @@ def build_ablation_review(metrics_list: list[dict[str, Any]]) -> dict[str, Any]:
         "ablations": ablations,
         "empty_hint": None if ablations else (
             "No ablation runs found. To populate: run train and evaluate for each config in "
-            "configs/experiments/ablations/ (e.g. xgb_temporal_h2_no_publication_year.yaml), "
-            "or use: make run-temporal-h2-ablations (after make run-temporal-h2)."
+            "configs/experiments/ablations/ (coarse and fine-grained numeric: no_referenced_works_count, "
+            "no_authors_count, no_institutions_count), or use: make run-temporal-h2-ablations (after make run-temporal-h2)."
         ),
     }
 
@@ -205,6 +229,24 @@ def _ablation_interpretation(ablation_name: str, row: dict[str, Any]) -> str:
     return f"Ablation {ablation_name}: see metric deltas vs full model."
 
 
+def _ablation_interpretation_tag(row: dict[str, Any]) -> str:
+    """Tag for quick scan: high / moderate / low / negligible impact."""
+    delta_r2 = row.get("delta_r2")
+    delta_mae = row.get("delta_mae")
+    if delta_r2 is not None:
+        if delta_r2 < -0.10:
+            return "high impact"
+        if delta_r2 < -0.03:
+            return "moderate impact"
+        if delta_r2 > 0.02:
+            return "negligible / possibly noisy"
+    if delta_mae is not None and delta_mae > 0.05:
+        return "moderate impact"
+    if delta_mae is not None and delta_mae > 0.02:
+        return "low impact"
+    return "low impact"
+
+
 def comparison_to_md(payload: dict[str, Any]) -> str:
     """Render benchmark_comparison payload as Markdown."""
     lines = [
@@ -214,15 +256,18 @@ def comparison_to_md(payload: dict[str, Any]) -> str:
         "",
         "## Rows (by benchmark mode and model)",
         "",
-        "| Benchmark mode | Target | Model | RMSE | MAE | R² | Zero rate | MAE (zero) | MAE (non-zero) |",
-        "|----------------|--------|-------|------|-----|-----|-----------|------------|-----------------|",
+        "| Benchmark mode | Target | Model | Family | Diagnostic? | RMSE | MAE | R² | Zero rate | MAE (zero) | MAE (non-zero) |",
+        "|----------------|--------|-------|--------|-------------|------|-----|-----|-----------|------------|-----------------|",
     ]
     for r in payload.get("rows", []):
+        diag = "yes" if r.get("is_diagnostic_only") else "—"
         lines.append(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
                 r.get("benchmark_mode", ""),
                 r.get("target_mode", ""),
                 r.get("model_name", ""),
+                r.get("model_family", ""),
+                diag,
                 r.get("rmse") if r.get("rmse") is not None else "—",
                 r.get("mae") if r.get("mae") is not None else "—",
                 r.get("r2") if r.get("r2") is not None else "—",
@@ -234,6 +279,10 @@ def comparison_to_md(payload: dict[str, Any]) -> str:
     lines.extend(["", "## Missing benchmark runs", ""])
     for m in payload.get("missing", []):
         lines.append(f"- **{m.get('benchmark_mode')}** / **{m.get('model_name')}**: {m.get('note', '')}")
+    if payload.get("interpretation_notes"):
+        lines.extend(["", "## Interpretation notes", ""])
+        for k, v in payload["interpretation_notes"].items():
+            lines.append(f"- **{k}**: {v}")
     lines.extend(["", "---", payload.get("notes", "")])
     return "\n".join(lines)
 
@@ -257,20 +306,22 @@ def ablation_to_md(payload: dict[str, Any]) -> str:
         lines.append(hint)
         lines.append("")
         return "\n".join(lines)
-    lines.append("| Ablation | Features removed | RMSE | MAE | R² | Δ RMSE | Δ MAE | Δ R² | Interpretation |")
-    lines.append("|----------|------------------|------|-----|-----|--------|-------|------|-----------------|")
+    lines.append("| Ablation | Type | Tag | Features removed | RMSE | MAE | R² | Δ RMSE | Δ MAE | Δ R² | Interpretation |")
+    lines.append("|----------|------|-----|------------------|------|-----|-----|--------|-------|------|-----------------|")
     for a in payload.get("ablations", []):
         lines.append(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
                 a.get("ablation_name", ""),
-                ", ".join(a.get("features_removed", []))[:40],
+                a.get("ablation_type", ""),
+                a.get("interpretation_tag", ""),
+                ", ".join(a.get("features_removed", []))[:36],
                 a.get("rmse") if a.get("rmse") is not None else "—",
                 a.get("mae") if a.get("mae") is not None else "—",
                 a.get("r2") if a.get("r2") is not None else "—",
                 a.get("delta_rmse") if a.get("delta_rmse") is not None else "—",
                 a.get("delta_mae") if a.get("delta_mae") is not None else "—",
                 a.get("delta_r2") if a.get("delta_r2") is not None else "—",
-                (a.get("interpretation") or "")[:50],
+                (a.get("interpretation") or "")[:40],
             )
         )
     return "\n".join(lines)

@@ -69,8 +69,29 @@ def test_benchmark_comparison_one_run() -> None:
     assert len(comparison["rows"]) == 1
     assert comparison["rows"][0]["benchmark_mode"] == "temporal_h2"
     assert comparison["rows"][0]["model_name"] == "baseline"
+    assert comparison["rows"][0]["model_family"] == "trivial baseline"
     assert comparison["rows"][0]["test_zero_rate"] == 0.5
     assert len(comparison["missing"]) > 0
+
+
+def test_benchmark_comparison_year_conditioned_diagnostic_label() -> None:
+    """Year-conditioned appears with model_family and is_diagnostic_only."""
+    metrics_list = [
+        {
+            "experiment_name": "year_conditioned_temporal_h2",
+            "model_name": "year_conditioned",
+            "dataset_id": "openalex_temporal_articles_1000",
+            "target_mode": "calendar_horizon",
+            "split_kind": "time",
+            "rmse": 1.2,
+            "mae": 0.7,
+            "r2": -0.4,
+        },
+    ]
+    comparison = build_benchmark_comparison(metrics_list)
+    assert len(comparison["rows"]) == 1
+    assert comparison["rows"][0]["model_family"] == "diagnostic baseline"
+    assert comparison["rows"][0]["is_diagnostic_only"] is True
 
 
 def test_ablation_review_no_full_model() -> None:
@@ -121,6 +142,32 @@ def test_ablation_features_removed_mapping() -> None:
     assert ABLATION_FEATURES_REMOVED["no_publication_year"] == ["publication_year"]
     assert "numeric_only" in ABLATION_FEATURES_REMOVED
     assert "categorical_only" in ABLATION_FEATURES_REMOVED
+    assert ABLATION_FEATURES_REMOVED["no_referenced_works_count"] == ["referenced_works_count"]
+    assert ABLATION_FEATURES_REMOVED["no_authors_count"] == ["authors_count"]
+    assert ABLATION_FEATURES_REMOVED["no_institutions_count"] == ["institutions_count"]
+
+
+def test_ablation_review_includes_type_and_tag() -> None:
+    """Ablation review rows include ablation_type and interpretation_tag."""
+    full = {
+        "experiment_name": ABLATION_FULL_EXPERIMENT,
+        "model_name": "xgboost",
+        "rmse": 0.5,
+        "mae": 0.4,
+        "r2": 0.3,
+    }
+    ablated = {
+        "experiment_name": "xgb_temporal_h2_no_referenced_works_count",
+        "model_name": "xgboost",
+        "rmse": 0.6,
+        "mae": 0.5,
+        "r2": 0.2,
+    }
+    review = build_ablation_review([full, ablated])
+    assert len(review["ablations"]) == 1
+    assert review["ablations"][0]["ablation_name"] == "no_referenced_works_count"
+    assert review["ablations"][0]["ablation_type"] == "numeric_fine"
+    assert review["ablations"][0]["interpretation_tag"] in ("high impact", "moderate impact", "low impact", "negligible / possibly noisy")
 
 
 def test_run_benchmark_analysis_writes_artifacts() -> None:
