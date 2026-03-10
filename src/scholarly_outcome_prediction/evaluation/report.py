@@ -36,6 +36,10 @@ def build_run_metadata(
     train_year_end: int | None = None,
     test_year_start: int | None = None,
     dataset_mode: str | None = None,
+    target_source: str | None = None,
+    horizon_years: int | None = None,
+    include_publication_year: bool | None = None,
+    target_eligibility: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a self-describing run metadata dict for artifact persistence."""
     meta = {
@@ -67,6 +71,14 @@ def build_run_metadata(
         meta["test_year_start"] = test_year_start
     if dataset_mode is not None:
         meta["dataset_mode"] = dataset_mode
+    if target_source is not None:
+        meta["target_source"] = target_source
+    if horizon_years is not None:
+        meta["horizon_years"] = horizon_years
+    if include_publication_year is not None:
+        meta["include_publication_year"] = include_publication_year
+    if target_eligibility is not None:
+        meta["target_eligibility"] = target_eligibility
     return meta
 
 

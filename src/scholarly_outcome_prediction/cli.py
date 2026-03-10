@@ -370,6 +370,16 @@ def run_pipeline_from_configs(
         full_df = read_parquet(processed_path)
         num_feat = cfg.features.numeric
         cat_feat = cfg.features.categorical
+        eligibility_info: dict = {}
+        if getattr(cfg.target, "target_mode", None) == "calendar_horizon":
+            from scholarly_outcome_prediction.features.targets import prepare_df_for_target
+            full_df, eligibility_info = prepare_df_for_target(
+                full_df,
+                target_name=cfg.target.name,
+                target_mode=cfg.target.target_mode,
+                horizon_years=getattr(cfg.target, "horizon_years", None),
+                include_publication_year=getattr(cfg.target, "include_publication_year", True),
+            )
         X, y = build_feature_matrix(
             full_df,
             numeric_features=num_feat,
@@ -430,6 +440,10 @@ def run_pipeline_from_configs(
             train_year_end=getattr(cfg.split, "train_year_end", None),
             test_year_start=getattr(cfg.split, "test_year_start", None),
             dataset_mode=dataset_mode,
+            target_source=getattr(cfg.target, "source", None),
+            horizon_years=getattr(cfg.target, "horizon_years", None),
+            include_publication_year=getattr(cfg.target, "include_publication_year", None),
+            target_eligibility=eligibility_info if eligibility_info else None,
         )
         meta_dir = root / "artifacts" / "metrics"
         meta_dir.mkdir(parents=True, exist_ok=True)

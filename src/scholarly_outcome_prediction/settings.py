@@ -13,8 +13,10 @@ from scholarly_outcome_prediction.utils.io import load_yaml
 # --- Target semantics ---
 # proxy: current bootstrap target (e.g. present-day cited_by_count)
 # research: future fixed-horizon scholarly outcome (not fully implemented yet)
+# calendar_horizon: citations summed over calendar years from counts_by_year
 TARGET_MODE_PROXY = "proxy"
 TARGET_MODE_RESEARCH = "research"
+TARGET_MODE_CALENDAR_HORIZON = "calendar_horizon"
 
 
 class DataConfig(BaseModel):
@@ -51,12 +53,16 @@ class SplitConfig(BaseModel):
 
 
 class TargetConfig(BaseModel):
-    """Target variable, transform, and semantics (proxy vs research)."""
+    """Target variable, transform, and semantics (proxy vs calendar_horizon vs research)."""
 
     name: str = "cited_by_count"
     transform: str | None = "log1p"  # "log1p" or None
-    # proxy = bootstrap proxy (e.g. current cited_by_count); research = fixed-horizon outcome (future)
-    target_mode: Literal["proxy", "research"] = "proxy"
+    # proxy = bootstrap proxy (e.g. current cited_by_count); calendar_horizon = from counts_by_year
+    target_mode: Literal["proxy", "research", "calendar_horizon"] = "proxy"
+    # For calendar_horizon: source field (counts_by_year), horizon length, include publication year
+    source: str | None = None  # e.g. "counts_by_year"
+    horizon_years: int | None = None  # e.g. 2
+    include_publication_year: bool = True  # True = citations_within_H; False = citations_in_next_H
 
 
 class DataPathsConfig(BaseModel):

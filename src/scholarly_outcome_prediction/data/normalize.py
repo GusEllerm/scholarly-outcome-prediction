@@ -17,6 +17,7 @@ NORMALIZED_COLUMNS = [
     "type",
     "language",
     "cited_by_count",
+    "counts_by_year_json",
     "referenced_works_count",
     "authors_count",
     "institutions_count",

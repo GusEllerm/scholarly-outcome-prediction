@@ -55,6 +55,20 @@ run-temporal-pilot:
 		--baseline-config configs/experiments/baseline_temporal.yaml \
 		--xgb-config configs/experiments/xgb_temporal.yaml
 
+# Representative pilot with 2-year calendar-horizon target (counts_by_year; requires fresh fetch with counts_by_year).
+run-representative-h2:
+	uv run scholarly-outcome-prediction run \
+		--data-config configs/data/openalex_representative_articles_1000.yaml \
+		--baseline-config configs/experiments/baseline_representative_h2.yaml \
+		--xgb-config configs/experiments/xgb_representative_h2.yaml
+
+# Temporal pilot with 2-year calendar-horizon target.
+run-temporal-h2:
+	uv run scholarly-outcome-prediction run \
+		--data-config configs/data/openalex_temporal_articles_1000.yaml \
+		--baseline-config configs/experiments/baseline_temporal_h2.yaml \
+		--xgb-config configs/experiments/xgb_temporal_h2.yaml
+
 # Validate representative pilot dataset.
 validate-representative-pilot:
 	uv run scholarly-outcome-prediction validate --data-config configs/data/openalex_representative_articles_1000.yaml

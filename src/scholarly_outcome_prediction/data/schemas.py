@@ -2,9 +2,41 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
+
+
+def _counts_by_year_from_raw(raw: dict[str, Any]) -> str | None:
+    """
+    Extract counts_by_year from OpenAlex work. Stored as JSON string for parquet compatibility.
+    OpenAlex shape: list of {"year": int, "cited_by_count": int}. We preserve that.
+    """
+    val = raw.get("counts_by_year")
+    if val is None:
+        return None
+    if isinstance(val, list) and len(val) == 0:
+        return None
+    if isinstance(val, list):
+        try:
+            out = []
+            for item in val:
+                if not isinstance(item, dict):
+                    continue
+                year = item.get("year")
+                cnt = item.get("cited_by_count")
+                if year is not None and cnt is not None:
+                    try:
+                        out.append({"year": int(year), "cited_by_count": int(cnt)})
+                    except (TypeError, ValueError):
+                        pass
+            if not out:
+                return None
+            return json.dumps(out, sort_keys=True)
+        except (TypeError, ValueError):
+            return None
+    return None
 
 
 class NormalizedWork(BaseModel):
@@ -12,6 +44,7 @@ class NormalizedWork(BaseModel):
 
     Includes optional text-modality fields for future use (abstracts, full text).
     Training currently uses metadata only.
+    counts_by_year_json: JSON array of {year, cited_by_count} for calendar-horizon targets.
     """
 
     openalex_id: str | None = None
@@ -21,6 +54,7 @@ class NormalizedWork(BaseModel):
     type: str | None = None
     language: str | None = None
     cited_by_count: int | None = None
+    counts_by_year_json: str | None = None
     referenced_works_count: int | None = None
     authors_count: int | None = None
     institutions_count: int | None = None
@@ -47,6 +81,7 @@ class NormalizedWork(BaseModel):
             type=_safe_str(raw.get("type")),
             language=_safe_str(raw.get("language")),
             cited_by_count=_safe_int(raw.get("cited_by_count")),
+            counts_by_year_json=_counts_by_year_from_raw(raw),
             referenced_works_count=_count_list(raw.get("referenced_works")),
             authors_count=_count_authorships(raw.get("authorships")),
             institutions_count=_count_institutions(raw.get("authorships")),

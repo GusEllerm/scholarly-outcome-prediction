@@ -21,7 +21,7 @@ Initial experiment:
 ## Current scope
 
 - **Metadata-only**: Features are metadata-derived (publication year, counts, venue, topic, etc.). Text (abstracts, full text) is not used in training yet; the schema and feature layer are set up for future text modalities.
-- **Proxy target**: The current target is a *proxy* (present-day cumulative `cited_by_count`), not yet the intended *research target* (e.g. fixed-horizon citations). Config uses `target_mode: proxy` to make this explicit; run artifacts record it.
+- **Two target modes**: (1) **Proxy** — present-day cumulative `cited_by_count`; (2) **Calendar-horizon** — citations within a fixed number of full calendar years derived from OpenAlex `counts_by_year`. Both are configurable; run artifacts record target mode and semantics.
 - Single end-to-end path: fetch → prepare → build metadata features → split → preprocess (imputation + encoding on train only) → train → evaluate → save self-describing metrics and run metadata.
 
 This is a **prototype** with a path to broader tasks and evaluation.
@@ -145,8 +145,30 @@ Representative and temporal are separate configs and Makefile targets so behavio
 
 Numeric: `publication_year`, `referenced_works_count`, `authors_count`, `institutions_count`.  
 Categorical: `type`, `language`, `venue_name`, `primary_topic`, `open_access_is_oa`.  
-Target: `cited_by_count` (proxy), with optional `log1p` transform.  
+Target: **Proxy** — `cited_by_count`; **Calendar-horizon** — sum of citations from `counts_by_year` over a configurable number of full calendar years. Both support optional `log1p` transform.  
 Imputation and encoding are done only in the sklearn pipeline fit on the training split (no leakage from feature building).
+
+### Target modes: proxy vs calendar-horizon
+
+The pipeline supports two target families; do not confuse them.
+
+- **Proxy** (`target_mode: proxy`): Uses current cumulative `cited_by_count` from the snapshot. Simple and always available, but mixes publication ages and does not fix a time window — useful for debugging and comparison only.
+- **Calendar-horizon** (`target_mode: calendar_horizon`): Derives the target from OpenAlex `counts_by_year` (citations bucketed by calendar year). You choose:
+  - **Horizon length** (`horizon_years`, e.g. 2): how many full calendar years to include.
+  - **Include publication year** (`include_publication_year: true/false`): if `true`, the window is publication year through publication year + (horizon_years − 1); if `false`, the window is the *next* `horizon_years` full calendar years after publication year.
+
+**Important:** These are **calendar-year** targets, not exact month-level windows. We use honest naming (e.g. `citations_within_2_calendar_years`, `citations_in_next_2_calendar_years`) and do *not* claim “citations after exactly 24 months”.
+
+**Horizon eligibility:** A row is only used when the requested horizon is fully observed in the data. For example, if the latest citation year in the snapshot is 2026, a paper published in 2025 with a 2-year horizon (including publication year) is **excluded**, because we do not yet have citation counts through 2026. The pipeline computes a global `max_available_citation_year` from `counts_by_year`, excludes ineligible rows, and reports how many were dropped (e.g. in run metadata and metrics).
+
+**How to run calendar-horizon benchmarks (2-year example):**
+
+```bash
+make run-representative-h2   # representative data, 2-year calendar-horizon target
+make run-temporal-h2        # temporal split, 2-year calendar-horizon target
+```
+
+**Limitations of the calendar-horizon approach:** (1) Granularity is calendar years, not exact months or days. (2) Eligibility depends on the snapshot’s latest citation year, so newer papers are excluded when the horizon is not yet complete. (3) We do not yet expand citing papers via `cited_by_api_url`; the target is derived only from the work’s own `counts_by_year`.
 
 ## Installation
 
@@ -215,6 +237,10 @@ make run-representative-pilot
 
 # Temporal pilot (stratified fetch, train 2015–2018 / test 2019–2020)
 make run-temporal-pilot
+
+# Calendar-horizon targets (2-year window from counts_by_year)
+make run-representative-h2
+make run-temporal-h2
 
 # Validate representative or temporal dataset
 make validate-representative-pilot

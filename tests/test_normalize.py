@@ -112,3 +112,23 @@ def test_normalize_optional_text_fields_absent() -> None:
     assert out["has_abstract"] is None
     assert out["has_fulltext"] is None
     assert out["fulltext_origin"] is None
+
+
+def test_normalize_counts_by_year_preserved() -> None:
+    """counts_by_year from OpenAlex is normalized to counts_by_year_json (JSON string)."""
+    import json
+    raw = {
+        "id": "https://openalex.org/W1",
+        "publication_year": 2019,
+        "counts_by_year": [
+            {"year": 2019, "cited_by_count": 1},
+            {"year": 2020, "cited_by_count": 3},
+        ],
+    }
+    out = normalize_work(raw)
+    assert out["counts_by_year_json"] is not None
+    parsed = json.loads(out["counts_by_year_json"])
+    assert parsed == [{"year": 2019, "cited_by_count": 1}, {"year": 2020, "cited_by_count": 3}]
+    # Missing counts_by_year -> None
+    out2 = normalize_work({"id": "https://openalex.org/W2"})
+    assert out2["counts_by_year_json"] is None

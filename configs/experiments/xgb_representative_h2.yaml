@@ -1,0 +1,53 @@
+# Representative pilot: XGBoost, 2-year calendar-horizon target.
+# Use with data from openalex_representative_articles_1000 (must have counts_by_year).
+experiment_name: xgb_representative_h2
+task_type: regression
+
+data:
+  processed_path: "data/processed/openalex_representative_articles_1000.parquet"
+  dataset_id: openalex_representative_articles_1000
+
+target:
+  name: citations_within_2_calendar_years
+  target_mode: calendar_horizon
+  source: counts_by_year
+  horizon_years: 2
+  include_publication_year: true
+  transform: log1p
+
+features:
+  numeric:
+    - publication_year
+    - referenced_works_count
+    - authors_count
+    - institutions_count
+  categorical:
+    - type
+    - language
+    - venue_name
+    - primary_topic
+    - open_access_is_oa
+
+split:
+  split_kind: random
+  test_size: 0.2
+  random_state: 42
+
+model:
+  name: xgboost
+  params:
+    n_estimators: 50
+    max_depth: 4
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_lambda: 1.0
+    objective: reg:squarederror
+    tree_method: auto
+    random_state: 42
+
+evaluation:
+  metrics:
+    - rmse
+    - mae
+    - r2
