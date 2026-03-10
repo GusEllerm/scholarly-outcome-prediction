@@ -1,4 +1,10 @@
-"""Unified benchmark comparison and ablation review from metrics artifacts."""
+"""Unified benchmark comparison and ablation review from metrics artifacts.
+
+Classification prefers explicit metadata from run artifacts (benchmark_mode, model_family,
+is_diagnostic_model, ablation_name, ablation_features_removed, ablation_type). Fallback
+inference from experiment_name/dataset_id is used only for older artifacts; fallback is
+narrow and logged.
+"""
 
 from __future__ import annotations
 
@@ -6,13 +12,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scholarly_outcome_prediction.logging_utils import get_logger
 from scholarly_outcome_prediction.utils.io import load_json, save_json
+
+logger = get_logger(__name__)
 
 # Canonical benchmark modes and target modes for comparison table
 BENCHMARK_MODES = ["representative_proxy", "temporal_proxy", "representative_h2", "temporal_h2"]
 ABLATION_FULL_EXPERIMENT = "xgb_temporal_h2"
-# Coarse = feature-group ablations; numeric_fine = single numeric feature removed
-ABLATION_FEATURES_REMOVED: dict[str, list[str]] = {
+# Fallback only: used when metrics lack explicit ablation_features_removed (older runs).
+# New runs should set ablation block in experiment config; that is the single source of truth.
+ABLATION_FEATURES_REMOVED_FALLBACK: dict[str, list[str]] = {
     "no_publication_year": ["publication_year"],
     "no_venue_name": ["venue_name"],
     "no_primary_topic": ["primary_topic"],
@@ -23,18 +33,22 @@ ABLATION_FEATURES_REMOVED: dict[str, list[str]] = {
     "no_institutions_count": ["institutions_count"],
 }
 ABLATION_TYPE_COARSE = {"no_publication_year", "no_venue_name", "no_primary_topic", "numeric_only", "categorical_only"}
-MODEL_FAMILY: dict[str, str] = {
+# Fallback only: when metrics lack explicit model_family / is_diagnostic_model
+MODEL_FAMILY_FALLBACK: dict[str, str] = {
     "baseline": "trivial baseline",
     "ridge": "linear baseline",
     "year_conditioned": "diagnostic baseline",
     "hurdle": "hurdle baseline",
     "xgboost": "tree model",
 }
-DIAGNOSTIC_ONLY_MODELS = {"year_conditioned"}
+DIAGNOSTIC_ONLY_MODELS_FALLBACK = {"year_conditioned"}
+
+# Backward compatibility for tests / external code that referenced these
+ABLATION_FEATURES_REMOVED = ABLATION_FEATURES_REMOVED_FALLBACK
 
 
 def _infer_benchmark_mode(experiment_name: str, data: dict[str, Any]) -> str | None:
-    """Infer benchmark mode: representative_proxy | temporal_proxy | representative_h2 | temporal_h2."""
+    """Fallback: infer benchmark mode from experiment_name and dataset_id. Prefer explicit data['benchmark_mode']."""
     name = (experiment_name or "").lower()
     dataset_id = (data.get("dataset_id") or data.get("effective_dataset_id") or "").lower()
     rep = "representative" in name or "representative" in dataset_id
@@ -51,6 +65,18 @@ def _infer_benchmark_mode(experiment_name: str, data: dict[str, Any]) -> str | N
     return None
 
 
+def _resolve_benchmark_mode(exp: str, data: dict[str, Any]) -> tuple[str | None, str]:
+    """Resolve benchmark mode: explicit if present, else infer. Returns (mode, classification_source)."""
+    explicit = data.get("benchmark_mode")
+    if explicit and explicit.strip():
+        return explicit.strip(), "explicit"
+    inferred = _infer_benchmark_mode(exp, data)
+    if inferred is not None:
+        logger.debug("benchmark_mode inferred for %s (missing explicit benchmark_mode)", exp)
+        return inferred, "inferred"
+    return None, "inferred"
+
+
 def _infer_target_mode(experiment_name: str, data: dict[str, Any]) -> str:
     """Infer target mode: proxy | h2 (calendar_horizon)."""
     if data.get("target_mode") == "calendar_horizon":
@@ -61,19 +87,63 @@ def _infer_target_mode(experiment_name: str, data: dict[str, Any]) -> str:
     return "proxy"
 
 
-def _is_ablation(experiment_name: str) -> bool:
-    """True if experiment is an ablation of xgb_temporal_h2."""
+def _resolve_model_family(model_name: str, data: dict[str, Any]) -> tuple[str, str]:
+    """Resolve model_family: explicit if present, else fallback dict. Returns (family, classification_source)."""
+    explicit = data.get("model_family")
+    if explicit and explicit.strip():
+        return explicit.strip(), "explicit"
+    family = MODEL_FAMILY_FALLBACK.get(model_name, "other")
+    logger.debug("model_family inferred for %s (missing explicit model_family)", model_name)
+    return family, "inferred"
+
+
+def _resolve_is_diagnostic(model_name: str, data: dict[str, Any]) -> tuple[bool, str]:
+    """Resolve is_diagnostic: explicit if present, else fallback set. Returns (is_diagnostic, classification_source)."""
+    explicit = data.get("is_diagnostic_model")
+    if explicit is not None:
+        return bool(explicit), "explicit"
+    return model_name in DIAGNOSTIC_ONLY_MODELS_FALLBACK, "inferred"
+
+
+def _is_ablation_from_data(data: dict[str, Any], experiment_name: str) -> bool:
+    """True if this run is an ablation: has explicit ablation_name or matches legacy naming."""
+    if data.get("ablation_name"):
+        return True
     if not experiment_name or not experiment_name.startswith("xgb_temporal_h2_"):
         return False
     suffix = experiment_name.replace("xgb_temporal_h2_", "")
-    return suffix in ABLATION_FEATURES_REMOVED
+    return suffix in ABLATION_FEATURES_REMOVED_FALLBACK
 
 
-def _ablation_name(experiment_name: str) -> str | None:
-    """Return ablation name (e.g. no_publication_year) or None."""
-    if not _is_ablation(experiment_name):
+def _ablation_name_from_data(data: dict[str, Any], experiment_name: str) -> str | None:
+    """Return ablation name: explicit if present, else from experiment_name suffix."""
+    explicit = data.get("ablation_name")
+    if explicit and explicit.strip():
+        return explicit.strip()
+    if not experiment_name or not experiment_name.startswith("xgb_temporal_h2_"):
         return None
-    return experiment_name.replace("xgb_temporal_h2_", "")
+    suffix = experiment_name.replace("xgb_temporal_h2_", "")
+    return suffix if suffix in ABLATION_FEATURES_REMOVED_FALLBACK else None
+
+
+def _ablation_features_removed_from_data(data: dict[str, Any], ablation_name: str | None) -> list[str]:
+    """Authoritative: explicit ablation_features_removed from run artifact; else fallback dict for legacy runs."""
+    explicit = data.get("ablation_features_removed")
+    if explicit is not None and isinstance(explicit, list):
+        return list(explicit)
+    if ablation_name:
+        return ABLATION_FEATURES_REMOVED_FALLBACK.get(ablation_name, [])
+    return []
+
+
+def _ablation_type_from_data(data: dict[str, Any], ablation_name: str | None) -> str:
+    """Resolve ablation_type: explicit if present, else coarse vs numeric_fine from name."""
+    explicit = data.get("ablation_type")
+    if explicit and explicit.strip():
+        return explicit.strip()
+    if ablation_name and ablation_name in ABLATION_TYPE_COARSE:
+        return "coarse"
+    return "numeric_fine"
 
 
 def load_all_metrics(artifacts_root: Path) -> list[dict[str, Any]]:
@@ -93,13 +163,13 @@ def load_all_metrics(artifacts_root: Path) -> list[dict[str, Any]]:
 
 
 def build_benchmark_comparison(metrics_list: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build unified comparison: rows per (benchmark_mode, model), plus missing list."""
+    """Build unified comparison: rows per (benchmark_mode, model), plus missing list. Prefers explicit metadata."""
     generated_at = datetime.now(timezone.utc).isoformat()
     rows: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for data in metrics_list:
         exp = data.get("experiment_name") or data.get("_metrics_file", "").replace(".json", "")
-        bm = _infer_benchmark_mode(exp, data)
+        bm, bm_source = _resolve_benchmark_mode(exp, data)
         if bm is None:
             continue
         model = data.get("model_name", "unknown")
@@ -107,13 +177,18 @@ def build_benchmark_comparison(metrics_list: list[dict[str, Any]]) -> dict[str, 
         if key in seen:
             continue
         seen.add(key)
+        model_family, family_source = _resolve_model_family(model, data)
+        is_diag, diag_source = _resolve_is_diagnostic(model, data)
         row: dict[str, Any] = {
             "benchmark_mode": bm,
+            "benchmark_mode_source": bm_source,
             "target_mode": _infer_target_mode(exp, data),
             "split_kind": data.get("split_kind"),
             "model_name": model,
-            "model_family": MODEL_FAMILY.get(model, "other"),
-            "is_diagnostic_only": model in DIAGNOSTIC_ONLY_MODELS,
+            "model_family": model_family,
+            "model_family_source": family_source,
+            "is_diagnostic_only": is_diag,
+            "is_diagnostic_only_source": diag_source,
             "experiment_name": exp,
             "rmse": data.get("rmse"),
             "mae": data.get("mae"),
@@ -157,12 +232,12 @@ def build_benchmark_comparison(metrics_list: list[dict[str, Any]]) -> dict[str, 
         "rows": rows,
         "missing": missing,
         "interpretation_notes": interpretation_notes,
-        "notes": "Eligibility filtering and target semantics (e.g. horizon) apply per run; see run metadata in each metrics JSON. Models with is_diagnostic_only=true are for interpretation only, not as primary baselines.",
+        "notes": "Eligibility filtering and target semantics (e.g. horizon) apply per run; see run metadata in each metrics JSON. Models with is_diagnostic_only=true are for interpretation only, not as primary baselines. Rows include benchmark_mode_source, model_family_source, is_diagnostic_only_source (explicit vs inferred) when classification was from run metadata vs fallback.",
     }
 
 
 def build_ablation_review(metrics_list: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build ablation comparison: each ablation vs full xgb_temporal_h2, with deltas."""
+    """Build ablation comparison: each ablation vs full xgb_temporal_h2, with deltas. Uses explicit ablation metadata when present."""
     generated_at = datetime.now(timezone.utc).isoformat()
     full_metrics: dict[str, Any] | None = None
     for data in metrics_list:
@@ -172,15 +247,19 @@ def build_ablation_review(metrics_list: list[dict[str, Any]]) -> dict[str, Any]:
     ablations: list[dict[str, Any]] = []
     for data in metrics_list:
         exp = data.get("experiment_name") or ""
-        name = _ablation_name(exp)
+        if not _is_ablation_from_data(data, exp):
+            continue
+        name = _ablation_name_from_data(data, exp)
         if name is None:
             continue
-        features_removed = ABLATION_FEATURES_REMOVED.get(name, [])
+        features_removed = _ablation_features_removed_from_data(data, name)
+        ablation_type = _ablation_type_from_data(data, name)
         row: dict[str, Any] = {
             "ablation_name": name,
             "experiment_name": exp,
             "features_removed": features_removed,
-            "ablation_type": "coarse" if name in ABLATION_TYPE_COARSE else "numeric_fine",
+            "features_removed_source": "explicit" if data.get("ablation_features_removed") is not None else "fallback",
+            "ablation_type": ablation_type,
             "benchmark_mode": "temporal_h2",
             "rmse": data.get("rmse"),
             "mae": data.get("mae"),

@@ -1,6 +1,10 @@
 # Representative pilot: Ridge baseline, same data/target/split as xgb_representative.
 experiment_name: ridge_representative
 task_type: regression
+benchmark:
+  benchmark_mode: representative_proxy
+  model_family: linear_baseline
+  is_diagnostic_model: false
 
 data:
   processed_path: "data/processed/openalex_representative_articles_1000.parquet"

@@ -1,6 +1,11 @@
 # Temporal H2: Year-conditioned baseline (per-year median), same data/target/split.
+# Diagnostic only: under temporal split test years are unseen, so predicts global median.
 experiment_name: year_conditioned_temporal_h2
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_h2
+  model_family: diagnostic_baseline
+  is_diagnostic_model: true
 
 data:
   processed_path: "data/processed/openalex_temporal_articles_1000.parquet"

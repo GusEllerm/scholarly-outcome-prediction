@@ -86,6 +86,22 @@ class ModelConfig(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class BenchmarkMetadataConfig(BaseModel):
+    """Optional explicit benchmark metadata for run artifacts and comparison. Reduces reliance on naming inference."""
+
+    benchmark_mode: str | None = None  # e.g. representative_proxy, temporal_proxy, representative_h2, temporal_h2
+    model_family: str | None = None  # e.g. trivial_baseline, linear_baseline, tree_model, hurdle_baseline, diagnostic_baseline
+    is_diagnostic_model: bool = False  # True = diagnostic-only (e.g. year_conditioned), not a primary comparator
+
+
+class AblationConfig(BaseModel):
+    """Ablation experiment metadata. Single source of truth for features_removed in reports."""
+
+    name: str  # e.g. no_publication_year
+    features_removed: list[str] = Field(default_factory=list)
+    ablation_type: str | None = None  # coarse | numeric_fine; optional, can be inferred from name if needed
+
+
 class EvaluationConfig(BaseModel):
     """Evaluation metrics to compute."""
 
@@ -93,7 +109,7 @@ class EvaluationConfig(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
-    """Full experiment config: dataset, task, target, features, model, eval."""
+    """Full experiment config: dataset, task, target, features, model, eval. Optional benchmark/ablation metadata."""
 
     experiment_name: str = "experiment"
     task_type: str = "regression"  # regression | classification (classification not fully wired)
@@ -103,6 +119,8 @@ class ExperimentConfig(BaseModel):
     split: SplitConfig = Field(default_factory=SplitConfig)
     model: ModelConfig = Field(default_factory=ModelConfig)
     evaluation: EvaluationConfig = Field(default_factory=EvaluationConfig)
+    benchmark: BenchmarkMetadataConfig | None = None  # optional; when set, carried into metrics and used by benchmark-analysis
+    ablation: AblationConfig | None = None  # optional; when set, this run is an ablation; features_removed is authoritative
 
 
 def load_data_config(path: Path) -> DataConfig:

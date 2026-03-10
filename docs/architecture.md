@@ -66,6 +66,8 @@ The repo separates **dataset**, **task**, and **model**. Experiment configs are 
 3. Add a new experiment config YAML that sets `model.name` and `model.params`.
 4. Run `train` and `evaluate` with that config (or extend the `run` flow if desired).
 
+For the model to be classified correctly in benchmark comparison and ablation reports without relying on naming, add optional **`benchmark`** (and **`ablation`** if applicable) metadata to the experiment config; see **`docs/adding_a_model.md`** for the full checklist and field reference.
+
 ## How to add a new task
 
 1. Extend experiment config and settings if needed (e.g. `task_type`, target semantics, metrics).

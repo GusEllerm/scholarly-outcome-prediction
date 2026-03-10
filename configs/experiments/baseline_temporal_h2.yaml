@@ -2,6 +2,10 @@
 # Use with data from openalex_temporal_articles_1000 (must have counts_by_year).
 experiment_name: baseline_temporal_h2
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_h2
+  model_family: trivial_baseline
+  is_diagnostic_model: false
 
 data:
   processed_path: "data/processed/openalex_temporal_articles_1000.parquet"

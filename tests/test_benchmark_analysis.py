@@ -186,3 +186,110 @@ def test_run_benchmark_analysis_writes_artifacts() -> None:
         assert (out_dir / "benchmark_comparison.md").exists()
         assert (out_dir / "ablation_review.json").exists()
         assert (out_dir / "ablation_review.md").exists()
+
+
+def test_benchmark_comparison_prefers_explicit_benchmark_mode() -> None:
+    """When metrics have explicit benchmark_mode, comparison uses it and records source."""
+    metrics_list = [
+        {
+            "experiment_name": "custom_experiment",
+            "model_name": "ridge",
+            "benchmark_mode": "representative_h2",
+            "dataset_id": "other_dataset",
+            "rmse": 0.8,
+            "mae": 0.5,
+            "r2": 0.2,
+        },
+    ]
+    comparison = build_benchmark_comparison(metrics_list)
+    assert len(comparison["rows"]) == 1
+    assert comparison["rows"][0]["benchmark_mode"] == "representative_h2"
+    assert comparison["rows"][0]["benchmark_mode_source"] == "explicit"
+
+
+def test_benchmark_comparison_prefers_explicit_model_family() -> None:
+    """When metrics have explicit model_family, comparison uses it and records source."""
+    metrics_list = [
+        {
+            "experiment_name": "ridge_temporal_h2",
+            "model_name": "ridge",
+            "benchmark_mode": "temporal_h2",
+            "model_family": "linear_baseline",
+            "dataset_id": "openalex_temporal_articles_1000",
+            "rmse": 0.7,
+            "mae": 0.5,
+            "r2": 0.4,
+        },
+    ]
+    comparison = build_benchmark_comparison(metrics_list)
+    assert len(comparison["rows"]) == 1
+    assert comparison["rows"][0]["model_family"] == "linear_baseline"
+    assert comparison["rows"][0]["model_family_source"] == "explicit"
+
+
+def test_ablation_review_uses_explicit_features_removed() -> None:
+    """When metrics have explicit ablation_features_removed, ablation review uses it (authoritative)."""
+    full = {
+        "experiment_name": ABLATION_FULL_EXPERIMENT,
+        "model_name": "xgboost",
+        "rmse": 0.5,
+        "mae": 0.4,
+        "r2": 0.3,
+    }
+    ablated = {
+        "experiment_name": "xgb_temporal_h2_no_publication_year",
+        "model_name": "xgboost",
+        "ablation_name": "no_publication_year",
+        "ablation_features_removed": ["publication_year"],
+        "ablation_type": "coarse",
+        "rmse": 0.52,
+        "mae": 0.42,
+        "r2": 0.28,
+    }
+    review = build_ablation_review([full, ablated])
+    assert len(review["ablations"]) == 1
+    assert review["ablations"][0]["features_removed"] == ["publication_year"]
+    assert review["ablations"][0]["features_removed_source"] == "explicit"
+
+
+def test_diagnostic_from_explicit_metadata() -> None:
+    """Explicit is_diagnostic_model: true yields is_diagnostic_only and diagnostic family."""
+    metrics_list = [
+        {
+            "experiment_name": "year_conditioned_temporal_h2",
+            "model_name": "year_conditioned",
+            "benchmark_mode": "temporal_h2",
+            "model_family": "diagnostic_baseline",
+            "is_diagnostic_model": True,
+            "dataset_id": "openalex_temporal_articles_1000",
+            "target_mode": "calendar_horizon",
+            "rmse": 1.2,
+            "mae": 0.7,
+            "r2": -0.4,
+        },
+    ]
+    comparison = build_benchmark_comparison(metrics_list)
+    assert len(comparison["rows"]) == 1
+    assert comparison["rows"][0]["is_diagnostic_only"] is True
+    assert comparison["rows"][0]["model_family"] == "diagnostic_baseline"
+    assert comparison["rows"][0]["is_diagnostic_only_source"] == "explicit"
+
+
+def test_old_artifacts_fallback() -> None:
+    """Metrics without explicit benchmark_mode/model_family still get inferred values (backward compat)."""
+    metrics_list = [
+        {
+            "experiment_name": "baseline_representative",
+            "model_name": "baseline",
+            "dataset_id": "openalex_representative_articles_1000",
+            "rmse": 1.0,
+            "mae": 0.8,
+            "r2": 0.0,
+        },
+    ]
+    comparison = build_benchmark_comparison(metrics_list)
+    assert len(comparison["rows"]) == 1
+    assert comparison["rows"][0]["benchmark_mode"] == "representative_proxy"
+    assert comparison["rows"][0]["benchmark_mode_source"] == "inferred"
+    assert comparison["rows"][0]["model_family"] == "trivial baseline"
+    assert comparison["rows"][0]["model_family_source"] == "inferred"

@@ -16,7 +16,7 @@
 - Excluded (incomplete horizon): 0
 - Train rows: 666; test rows: 334
 - Train year range: [2015, 2018]; test year range: [2019, 2020]
-- Target zero-rate train: 0.6742; test: 0.6018
+- Target zero-rate train: 0.6742; test: 0.6048
 
 **Train target distribution (transformed):** {
     "count": 666,
@@ -37,19 +37,19 @@
     "q25": 0.0,
     "median": 0.0,
     "q75": 1.0986122886681098,
-    "q95": 2.9794681896613806,
+    "q95": 2.872142316344791,
     "max": 4.804021044733257,
-    "mean": 0.7010030655452112
+    "mean": 0.6916153583118904
   }
 
 ## 3. Baseline vs XGBoost
 
 | Metric | Baseline | XGBoost |
 |--------|----------|---------|
-| RMSE   | 1.0744 | 0.7701 |
-| MAE    | 0.8049 | 0.4727 |
-| R²     | -0.0326 | 0.4695 |
-| Spearman | N/A | 0.67145100662018 |
+| RMSE   | 1.0651 | 0.7640 |
+| MAE    | 0.7985 | 0.4676 |
+| R²     | -0.0299 | 0.4701 |
+| Spearman | N/A | 0.6697112440560024 |
 
 ## 4. Subgroup analysis (test set)
 
@@ -57,20 +57,20 @@ See `artifacts/diagnostics/temporal_h2_subgroup_metrics.json` for full slices.
 
 | Publication year | n | MAE (XGBoost) |
 |------------------|---|---------------|
-| 2019 | 167 | 0.4648 |
+| 2019 | 167 | 0.4546 |
 | 2020 | 167 | 0.4806 |
 
 | Slice | n | MAE baseline | MAE XGBoost |
 |-------|---|--------------|-------------|
-| Zero target | 201 | 0.5101414764158019 | 0.2054347920958972 |
-| Nonzero target | 133 | 1.250272237058638 | 0.8766276133724271 |
+| Zero target | 202 | 0.5101414764158019 | 0.20471992760454075 |
+| Nonzero target | 132 | 1.2398549605248905 | 0.8698997748082009 |
 
 ## 5. Zero-inflation
 
-- Test rows with target = 0: 201
-- Test rows with target > 0: 133
-- MAE baseline on zero-target: 0.5101414764158019; on nonzero: 1.250272237058638
-- MAE XGBoost on zero-target: 0.2054347920958972; on nonzero: 0.8766276133724271
+- Test rows with target = 0: 202
+- Test rows with target > 0: 132
+- MAE baseline on zero-target: 0.5101414764158019; on nonzero: 1.2398549605248905
+- MAE XGBoost on zero-target: 0.20471992760454075; on nonzero: 0.8698997748082009
 
 ## 6. Feature signal
 
@@ -96,7 +96,12 @@ Full list: `artifacts/diagnostics/temporal_h2_feature_importance.json`.
 
 ## 7. Comparison to other benchmarks
 
-No other benchmark metrics found in artifacts/metrics.
+- **baseline_representative**: R²=-0.0007, RMSE=1.2783940833568155, MAE=1.0903695109582372
+- **xgb_representative**: R²=0.5684, RMSE=0.8395245759846047, MAE=0.5846139592025117
+- **baseline_temporal**: R²=-0.0000, RMSE=1.3828264297861321, MAE=1.1546212428195748
+- **xgb_temporal**: R²=0.5842, RMSE=0.8917094478250651, MAE=0.6162508222521692
+- **baseline_representative_h2**: R²=-0.0022, RMSE=0.8605137103314564, MAE=0.700318250489711
+- **xgb_representative_h2**: R²=0.4927, RMSE=0.6121959444927533, MAE=0.3806653022755087
 
 ## 8. Interpretation and summary
 

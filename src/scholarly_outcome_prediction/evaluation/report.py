@@ -42,6 +42,12 @@ def build_run_metadata(
     target_eligibility: dict[str, Any] | None = None,
     target_semantics_description: str | None = None,
     target_zero_rate: float | None = None,
+    benchmark_mode: str | None = None,
+    model_family: str | None = None,
+    is_diagnostic_model: bool | None = None,
+    ablation_name: str | None = None,
+    ablation_features_removed: list[str] | None = None,
+    ablation_type: str | None = None,
 ) -> dict[str, Any]:
     """Build a self-describing run metadata dict for artifact persistence."""
     meta = {
@@ -85,6 +91,18 @@ def build_run_metadata(
         meta["target_semantics_description"] = target_semantics_description
     if target_zero_rate is not None:
         meta["target_zero_rate"] = target_zero_rate
+    if benchmark_mode is not None:
+        meta["benchmark_mode"] = benchmark_mode
+    if model_family is not None:
+        meta["model_family"] = model_family
+    if is_diagnostic_model is not None:
+        meta["is_diagnostic_model"] = is_diagnostic_model
+    if ablation_name is not None:
+        meta["ablation_name"] = ablation_name
+    if ablation_features_removed is not None:
+        meta["ablation_features_removed"] = ablation_features_removed
+    if ablation_type is not None:
+        meta["ablation_type"] = ablation_type
     return meta
 
 

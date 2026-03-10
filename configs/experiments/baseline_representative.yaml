@@ -2,6 +2,10 @@
 # Use with data from openalex_representative_articles_1000.
 experiment_name: baseline_representative
 task_type: regression
+benchmark:
+  benchmark_mode: representative_proxy
+  model_family: trivial_baseline
+  is_diagnostic_model: false
 
 data:
   processed_path: "data/processed/openalex_representative_articles_1000.parquet"

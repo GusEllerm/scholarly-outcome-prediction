@@ -1,6 +1,10 @@
 # Temporal pilot: Ridge baseline, same data/target/split as xgb_temporal.
 experiment_name: ridge_temporal
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_proxy
+  model_family: linear_baseline
+  is_diagnostic_model: false
 
 data:
   processed_path: "data/processed/openalex_temporal_articles_1000.parquet"

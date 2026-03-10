@@ -4,6 +4,7 @@ task_type: regression
 ablation:
   name: no_institutions_count
   features_removed: [institutions_count]
+  ablation_type: numeric_fine
 
 data:
   processed_path: "data/processed/openalex_temporal_articles_1000.parquet"

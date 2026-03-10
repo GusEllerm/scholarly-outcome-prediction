@@ -4,6 +4,7 @@ task_type: regression
 ablation:
   name: numeric_only
   features_removed: [type, language, venue_name, primary_topic, open_access_is_oa]
+  ablation_type: coarse
 
 data:
   processed_path: "data/processed/openalex_temporal_articles_1000.parquet"

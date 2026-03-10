@@ -319,6 +319,14 @@ def evaluate(
         effective_dataset_id=effective_dataset_id,
         effective_processed_path=str(processed_path),
         dataset_mode=_dataset_mode,
+        train_year_end=getattr(cfg.split, "train_year_end", None),
+        test_year_start=getattr(cfg.split, "test_year_start", None),
+        benchmark_mode=getattr(cfg.benchmark, "benchmark_mode", None) if getattr(cfg, "benchmark", None) else None,
+        model_family=getattr(cfg.benchmark, "model_family", None) if getattr(cfg, "benchmark", None) else None,
+        is_diagnostic_model=getattr(cfg.benchmark, "is_diagnostic_model", None) if getattr(cfg, "benchmark", None) else None,
+        ablation_name=cfg.ablation.name if getattr(cfg, "ablation", None) else None,
+        ablation_features_removed=cfg.ablation.features_removed if getattr(cfg, "ablation", None) else None,
+        ablation_type=getattr(cfg.ablation, "ablation_type", None) if getattr(cfg, "ablation", None) else None,
     )
     out_path = root / "artifacts" / "metrics" / f"{cfg.experiment_name}.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -525,6 +533,12 @@ def run_pipeline_from_configs(
             target_eligibility=eligibility_info if eligibility_info else None,
             target_semantics_description=target_semantics_description,
             target_zero_rate=target_zero_rate,
+            benchmark_mode=getattr(cfg.benchmark, "benchmark_mode", None) if getattr(cfg, "benchmark", None) else None,
+            model_family=getattr(cfg.benchmark, "model_family", None) if getattr(cfg, "benchmark", None) else None,
+            is_diagnostic_model=getattr(cfg.benchmark, "is_diagnostic_model", None) if getattr(cfg, "benchmark", None) else None,
+            ablation_name=cfg.ablation.name if getattr(cfg, "ablation", None) else None,
+            ablation_features_removed=cfg.ablation.features_removed if getattr(cfg, "ablation", None) else None,
+            ablation_type=getattr(cfg.ablation, "ablation_type", None) if getattr(cfg, "ablation", None) else None,
         )
         meta_dir = root / "artifacts" / "metrics"
         meta_dir.mkdir(parents=True, exist_ok=True)

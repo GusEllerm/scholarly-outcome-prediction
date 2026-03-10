@@ -2,6 +2,10 @@
 # Use with data from openalex_temporal_articles_1000.
 experiment_name: xgb_temporal
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_proxy
+  model_family: tree_model
+  is_diagnostic_model: false
 
 data:
   processed_path: "data/processed/openalex_temporal_articles_1000.parquet"
