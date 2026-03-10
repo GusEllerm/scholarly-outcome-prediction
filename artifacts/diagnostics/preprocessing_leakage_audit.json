@@ -1,0 +1,41 @@
+{
+  "report_scope": "design",
+  "report_name": "preprocessing_leakage_audit",
+  "generated_at": "2026-03-10T15:48:17.501931+00:00",
+  "static_audit_findings": {
+    "inferred_from": "static code inspection; not a runtime trace",
+    "preprocessor_fit_after_split": true,
+    "preprocessor_fit_on_train_only": true,
+    "target_excluded_from_X": true,
+    "imputation_performed_inside_pipeline": true,
+    "split_before_preprocessor_fit": true,
+    "order_of_operations": [
+      "read_parquet(processed_path)",
+      "build_feature_matrix(df, ...) -> X, y (no imputation)",
+      "concat(X, y), dropna(subset=[target])",
+      "train_test_split_df(full, ...) -> train_df, test_df",
+      "X_train, y_train from train_df",
+      "Pipeline(preprocessor, model).fit(X_train, y_train)",
+      "predict on X_test for evaluation"
+    ],
+    "split_kind_from_config": "split_kind (e.g. random) comes from experiment config; time-based split is implemented in train_test_split_df but may not be used in all paths.",
+    "target_not_in_feature_lists": "cited_by_count is not in feature lists in experiment configs; target is only in y."
+  },
+  "design_caveats": {
+    "current_risk_level": "low",
+    "architecture_notes": [
+      "Feature building (build_feature_matrix) does not impute; preprocessor (fit on train) does.",
+      "dataset_id in metrics can come from experiment config (data.dataset_id); if experiment config points at a different dataset_name than the data config used for fetch, artifact metadata may be misleading."
+    ],
+    "audit_limitations": [
+      "This audit is static/code-based. It does not verify a specific run's split or fit order at runtime.",
+      "Findings were not directly observed; they are inferred from the current codebase.",
+      "Temporal splitting is implemented in train_test_split_df but representative runs typically use random split."
+    ]
+  },
+  "code_references": {
+    "feature_building": "scholarly_outcome_prediction.features.build_features",
+    "preprocessing": "scholarly_outcome_prediction.features.preprocess.build_preprocessor",
+    "split": "scholarly_outcome_prediction.data.split.train_test_split_df"
+  }
+}

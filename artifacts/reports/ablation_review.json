@@ -1,0 +1,102 @@
+{
+  "report_scope": "ablation_review",
+  "report_name": "Metadata ablation comparison",
+  "generated_at": "2026-03-10T15:48:29.614527+00:00",
+  "full_model_experiment": "xgb_temporal_h2",
+  "full_model_available": true,
+  "ablations": [
+    {
+      "ablation_name": "categorical_only",
+      "experiment_name": "xgb_temporal_h2_categorical_only",
+      "features_removed": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "rmse": 1.0268931901458365,
+      "mae": 0.7070819151531671,
+      "r2": 0.056662999590753715,
+      "test_zero_rate": 0.6018,
+      "mae_zero_target": 0.3989152756348178,
+      "mae_nonzero_target": 1.1728074380342814,
+      "delta_rmse": 0.2568109074482039,
+      "delta_mae": 0.23437573015374152,
+      "delta_r2": -0.41283065272249797,
+      "interpretation": "Removing categorical_only hurts R² substantially; this feature group carries signal."
+    },
+    {
+      "ablation_name": "no_primary_topic",
+      "experiment_name": "xgb_temporal_h2_no_primary_topic",
+      "features_removed": [
+        "primary_topic"
+      ],
+      "rmse": 0.7686097454901358,
+      "mae": 0.4777297131782545,
+      "r2": 0.47152056155244804,
+      "test_zero_rate": 0.6018,
+      "mae_zero_target": 0.21325709596646958,
+      "mae_nonzero_target": 0.8774214128742602,
+      "delta_rmse": -0.001472537207496738,
+      "delta_mae": 0.005023528178828951,
+      "delta_r2": 0.0020269092391963506,
+      "interpretation": "Ablation no_primary_topic: see metric deltas vs full model."
+    },
+    {
+      "ablation_name": "no_publication_year",
+      "experiment_name": "xgb_temporal_h2_no_publication_year",
+      "features_removed": [
+        "publication_year"
+      ],
+      "rmse": 0.7717659193439886,
+      "mae": 0.4756121746656253,
+      "r2": 0.4671714165440256,
+      "test_zero_rate": 0.6018,
+      "mae_zero_target": 0.19921640030557836,
+      "mae_nonzero_target": 0.8933230817811849,
+      "delta_rmse": 0.0016836366463560681,
+      "delta_mae": 0.0029059896661997042,
+      "delta_r2": -0.0023222357692260776,
+      "interpretation": "Ablation no_publication_year: see metric deltas vs full model."
+    },
+    {
+      "ablation_name": "no_venue_name",
+      "experiment_name": "xgb_temporal_h2_no_venue_name",
+      "features_removed": [
+        "venue_name"
+      ],
+      "rmse": 0.7737663414552991,
+      "mae": 0.48034179198787097,
+      "r2": 0.46440564666573325,
+      "test_zero_rate": 0.6018,
+      "mae_zero_target": 0.2194865791692366,
+      "mae_nonzero_target": 0.8745665873002431,
+      "delta_rmse": 0.0036840587576665307,
+      "delta_mae": 0.007635606988445398,
+      "delta_r2": -0.005088005647518434,
+      "interpretation": "Ablation no_venue_name: see metric deltas vs full model."
+    },
+    {
+      "ablation_name": "numeric_only",
+      "experiment_name": "xgb_temporal_h2_numeric_only",
+      "features_removed": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "rmse": 0.7886199848306823,
+      "mae": 0.5037067836279182,
+      "r2": 0.44364514979655634,
+      "test_zero_rate": 0.6018,
+      "mae_zero_target": 0.25383478145471855,
+      "mae_nonzero_target": 0.8813328921753852,
+      "delta_rmse": 0.018537702133049727,
+      "delta_mae": 0.031000598628492637,
+      "delta_r2": -0.02584850251669535,
+      "interpretation": "Ablation numeric_only: see metric deltas vs full model."
+    }
+  ],
+  "empty_hint": null
+}

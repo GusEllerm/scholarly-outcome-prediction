@@ -11,7 +11,9 @@ import typer
 from scholarly_outcome_prediction.data import normalize_works_to_dataframe, train_test_split_df
 from scholarly_outcome_prediction.evaluation import (
     build_run_metadata,
+    compute_calibration_tail_metrics,
     compute_metrics,
+    compute_zero_inflation_metrics,
     load_model_pipeline,
     save_metrics,
     save_model_pipeline,
@@ -25,6 +27,7 @@ from scholarly_outcome_prediction.utils.seeds import set_global_seed
 
 from scholarly_outcome_prediction.acquisition import fetch_and_save
 from scholarly_outcome_prediction.validation import run_validation_and_save
+from scholarly_outcome_prediction.evaluation.benchmark_analysis import run_benchmark_analysis
 
 app = typer.Typer(help="Scholarly outcome prediction pipeline")
 logger = get_logger(__name__)
@@ -33,6 +36,22 @@ logger = get_logger(__name__)
 def _ensure_project_cwd() -> Path:
     """Use current dir as project root (config paths are relative)."""
     return Path.cwd()
+
+
+def _ensure_time_column_for_split(
+    full: pd.DataFrame,
+    source_df: pd.DataFrame,
+    split_cfg: object,
+) -> None:
+    """When split is time-based and the time column is not in full (e.g. ablated), add it from source_df."""
+    if getattr(split_cfg, "split_kind", "random") != "time":
+        return
+    time_col = getattr(split_cfg, "time_column", None)
+    if not time_col or time_col in full.columns:
+        return
+    if time_col not in source_df.columns:
+        return
+    full[time_col] = source_df.loc[full.index, time_col].values
 
 
 @app.callback(invoke_without_command=True)
@@ -159,6 +178,15 @@ def train(
         raise typer.Exit(1)
 
     df = read_parquet(processed_path)
+    if getattr(cfg.target, "target_mode", None) == "calendar_horizon":
+        from scholarly_outcome_prediction.features.targets import prepare_df_for_target
+        df, _ = prepare_df_for_target(
+            df,
+            target_name=cfg.target.name,
+            target_mode=cfg.target.target_mode,
+            horizon_years=getattr(cfg.target, "horizon_years", None),
+            include_publication_year=getattr(cfg.target, "include_publication_year", True),
+        )
     num_feat = cfg.features.numeric
     cat_feat = cfg.features.categorical
     X, y = build_feature_matrix(
@@ -170,6 +198,7 @@ def train(
     )
     full = pd.concat([X, y], axis=1)
     full = full.dropna(subset=[cfg.target.name])
+    _ensure_time_column_for_split(full, df, cfg.split)
     train_df, _ = train_test_split_df(
         full,
         test_size=cfg.split.test_size,
@@ -233,6 +262,15 @@ def evaluate(
 
     processed_path = root / cfg.data.processed_path
     df = read_parquet(processed_path)
+    if getattr(cfg.target, "target_mode", None) == "calendar_horizon":
+        from scholarly_outcome_prediction.features.targets import prepare_df_for_target
+        df, _ = prepare_df_for_target(
+            df,
+            target_name=cfg.target.name,
+            target_mode=cfg.target.target_mode,
+            horizon_years=getattr(cfg.target, "horizon_years", None),
+            include_publication_year=getattr(cfg.target, "include_publication_year", True),
+        )
     num_feat = cfg.features.numeric
     cat_feat = cfg.features.categorical
     X, y = build_feature_matrix(
@@ -244,6 +282,7 @@ def evaluate(
     )
     full = pd.concat([X, y], axis=1)
     full = full.dropna(subset=[cfg.target.name])
+    _ensure_time_column_for_split(full, df, cfg.split)
     _, test_df = train_test_split_df(
         full,
         test_size=cfg.split.test_size,
@@ -258,6 +297,8 @@ def evaluate(
 
     y_pred = pipe.predict(X_test)
     metrics = compute_metrics(y_test, y_pred, metric_names=cfg.evaluation.metrics)
+    metrics["zero_inflation"] = compute_zero_inflation_metrics(y_test, y_pred)
+    metrics["calibration_tail"] = compute_calibration_tail_metrics(y_test, y_pred)
     effective_dataset_id = processed_path.stem
     _dataset_mode = "representative" if "representative" in effective_dataset_id else ("temporal" if "temporal" in effective_dataset_id else None)
     run_meta = build_run_metadata(
@@ -442,6 +483,8 @@ def run_pipeline_from_configs(
 
         y_pred = pipe.predict(X_test)
         metrics = compute_metrics(y_test, y_pred, metric_names=cfg.evaluation.metrics)
+        metrics["zero_inflation"] = compute_zero_inflation_metrics(y_test, y_pred)
+        metrics["calibration_tail"] = compute_calibration_tail_metrics(y_test, y_pred)
         experiment_config_path_used = (
             baseline_config_path if cfg.experiment_name == base_cfg.experiment_name else xgb_config_path
         )
@@ -535,6 +578,36 @@ def run_pipeline_from_configs(
         include_design_trace=True,
     )
     logger.info("Diagnostics written to %s (pipeline_trace.json + profile, audit, design trace, etc.)", diag_dir)
+
+
+@app.command(name="benchmark-analysis")
+def benchmark_analysis(
+    artifacts_dir: Path = typer.Option(
+        None,
+        "--artifacts-dir",
+        path_type=Path,
+        help="Artifacts root (default: ./artifacts)",
+    ),
+    out_dir: Path = typer.Option(
+        None,
+        "--out-dir",
+        path_type=Path,
+        help="Output directory for comparison/review (default: artifacts/reports)",
+    ),
+) -> None:
+    """Generate unified benchmark comparison and ablation review from metrics artifacts."""
+    root = _ensure_project_cwd()
+    artifacts_root = artifacts_dir or root / "artifacts"
+    summary = run_benchmark_analysis(artifacts_root, out_dir=out_dir)
+    logger.info(
+        "Benchmark analysis: loaded %s metrics, %s comparison rows, %s ablations",
+        summary["metrics_loaded"],
+        summary["comparison_rows"],
+        summary["ablation_count"],
+    )
+    for label, path in summary["written"].items():
+        logger.info("Wrote %s -> %s", label, path)
+    typer.echo(summary)
 
 
 if __name__ == "__main__":

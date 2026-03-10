@@ -90,6 +90,47 @@ def test_registry_ridge(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
     assert pred.shape == y.shape
 
 
+def test_year_conditioned_baseline_behavior() -> None:
+    """Year-conditioned baseline: per-year median and fallback for unseen year."""
+    from scholarly_outcome_prediction.models.year_conditioned_baseline import YearConditionedBaselineRegressor
+
+    # X: first column = year (2018, 2018, 2019, 2019), then dummy cols
+    X = np.array([[2018, 1, 0], [2018, 2, 0], [2019, 1, 0], [2019, 2, 0]], dtype=np.float64)
+    y = np.array([10.0, 20.0, 30.0, 40.0])  # 2018 median=15, 2019 median=35
+    model = YearConditionedBaselineRegressor(use_mean=False, year_column_index=0)
+    model.fit(X, y)
+    pred = model.predict(X)
+    assert pred.shape == (4,)
+    assert pred[0] == pred[1] == 15.0
+    assert pred[2] == pred[3] == 35.0
+    # Unseen year gets global median
+    X_unseen = np.array([[2020, 1, 0], [2020, 2, 0]])
+    pred_unseen = model.predict(X_unseen)
+    global_median = 25.0  # median(10,20,30,40)
+    assert pred_unseen[0] == pred_unseen[1] == global_median
+
+
+def test_registry_year_conditioned(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
+    X, y = small_X_y
+    # First column as "year" for consistency
+    X[:, 0] = np.array([2018] * 10 + [2019] * 10)
+    model = get_model_builder("year_conditioned")(params={"year_column_index": 0})
+    model.fit(X, y)
+    pred = model.predict(X)
+    assert pred.shape == y.shape
+
+
+def test_registry_hurdle(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
+    """Hurdle baseline: zero vs nonzero then regress on positive."""
+    y = np.array([0.0, 0.0, 1.0, 2.0, 3.0] * 4)
+    X = np.random.randn(20, 4).astype(np.float32)
+    model = get_model_builder("hurdle")(params={})
+    model.fit(X, y)
+    pred = model.predict(X)
+    assert pred.shape == y.shape
+    assert (pred >= 0).all()
+
+
 def test_pipeline_with_preprocessor_and_baseline() -> None:
     """Full pipeline: preprocessor + baseline on 2 samples."""
     import pandas as pd

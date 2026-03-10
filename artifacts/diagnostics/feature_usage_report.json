@@ -1,0 +1,520 @@
+{
+  "report_scope": "dataset",
+  "report_name": "feature_usage_report",
+  "generated_at": "2026-03-10T15:48:17.483650+00:00",
+  "dataset_id": "openalex_temporal_articles_1000",
+  "source_dataset_path": "/Users/gusellerm/Projects/scholarly-outcome-prediction/data/processed/openalex_temporal_articles_1000.parquet",
+  "config_paths": [
+    "/Users/gusellerm/Projects/scholarly-outcome-prediction/configs/experiments"
+  ],
+  "normalized_schema_columns": [
+    "openalex_id",
+    "title",
+    "publication_year",
+    "publication_date",
+    "type",
+    "language",
+    "cited_by_count",
+    "counts_by_year_json",
+    "referenced_works_count",
+    "authors_count",
+    "institutions_count",
+    "venue_name",
+    "open_access_is_oa",
+    "primary_topic",
+    "abstract_text",
+    "fulltext_text",
+    "has_abstract",
+    "has_fulltext",
+    "fulltext_origin"
+  ],
+  "optional_text_columns": [
+    "has_fulltext",
+    "fulltext_origin",
+    "has_abstract",
+    "abstract_text",
+    "fulltext_text"
+  ],
+  "leakage_risky_columns": [
+    "cited_by_count",
+    "openalex_id",
+    "publication_date",
+    "title"
+  ],
+  "all_numeric_used_any_config": [
+    "authors_count",
+    "institutions_count",
+    "publication_year",
+    "referenced_works_count"
+  ],
+  "all_categorical_used_any_config": [
+    "open_access_is_oa",
+    "venue_name",
+    "type",
+    "primary_topic",
+    "language"
+  ],
+  "per_experiment": {
+    "baseline_regression.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "baseline_regression_time.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "baseline_representative.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "baseline_representative_h2.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "baseline_temporal.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "baseline_temporal_h2.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "hurdle_temporal_h2.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "ridge_regression.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "ridge_temporal_h2.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "xgb_regression.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "xgb_regression_time.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "xgb_representative.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "xgb_representative_h2.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "xgb_temporal.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "xgb_temporal_h2.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    },
+    "year_conditioned_temporal_h2.yaml": {
+      "numeric": [
+        "publication_year",
+        "referenced_works_count",
+        "authors_count",
+        "institutions_count"
+      ],
+      "categorical": [
+        "type",
+        "language",
+        "venue_name",
+        "primary_topic",
+        "open_access_is_oa"
+      ],
+      "used_columns": [
+        "institutions_count",
+        "open_access_is_oa",
+        "venue_name",
+        "publication_year",
+        "type",
+        "referenced_works_count",
+        "primary_topic",
+        "authors_count",
+        "language"
+      ],
+      "configured_but_missing_from_data": [],
+      "used_and_leakage_risky": []
+    }
+  },
+  "unused_metadata_columns": [
+    "openalex_id",
+    "publication_date",
+    "title",
+    "counts_by_year_json"
+  ],
+  "available_not_used": [
+    "openalex_id",
+    "publication_date",
+    "title",
+    "counts_by_year_json"
+  ],
+  "text_used": false
+}

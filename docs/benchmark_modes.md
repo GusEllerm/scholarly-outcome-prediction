@@ -84,3 +84,99 @@ Representative and temporal pilots both have proxy and 2-year calendar-horizon e
 
 - Representative: `baseline_representative`, `xgb_representative` (proxy) and `baseline_representative_h2`, `xgb_representative_h2` (2-year calendar-horizon).
 - Temporal: `baseline_temporal`, `xgb_temporal` (proxy) and `baseline_temporal_h2`, `xgb_temporal_h2` (2-year calendar-horizon).
+
+---
+
+## Benchmark suite: baselines and models
+
+Beyond the trivial (constant-mean) baseline, the suite includes stronger baselines so you can check whether XGBoost beats serious simple models.
+
+| Model | Description | Config example |
+|-------|-------------|----------------|
+| **baseline** | Constant (training mean) | `baseline_temporal_h2.yaml` |
+| **ridge** | Regularized linear regression on the same metadata features | `ridge_temporal_h2.yaml` |
+| **year_conditioned** | Per–publication-year median (or mean) of the training target; unseen years get global median. Tests whether the model is mostly exploiting time/cohort. | `year_conditioned_temporal_h2.yaml` |
+| **hurdle** | Two-stage: zero vs nonzero classifier, then Ridge on positive targets only. | `hurdle_temporal_h2.yaml`; `make run-temporal-h2-hurdle` |
+| **xgboost** | Gradient-boosted trees. | `xgb_temporal_h2.yaml` |
+
+**Makefile (temporal H2):**
+
+- `make run-temporal-h2` — Full pipeline: data + **baseline** + **xgboost** (writes `baseline_temporal_h2`, `xgb_temporal_h2` metrics).
+- `make run-temporal-h2-baselines` — Same data, **ridge** + **year_conditioned** (writes `ridge_temporal_h2`, `year_conditioned_temporal_h2` metrics). Run after `run-temporal-h2` so all four model metrics exist for comparison.
+- `make run-temporal-h2-hurdle` — Same data, **hurdle** baseline (writes `hurdle_temporal_h2` metrics). Run after `run-temporal-h2`.
+
+**Run the whole benchmark suite:**
+
+```bash
+make run-full-benchmark
+```
+
+This runs in order:
+
+1. **Representative proxy** — `run-representative-pilot` (representative data, proxy target, baseline + xgboost).
+2. **Representative H2** — `run-representative-h2` (same representative data, 2-year calendar-horizon, baseline + xgboost).
+3. **Temporal proxy** — `run-temporal-pilot` (temporal data, proxy target, baseline + xgboost).
+4. **Temporal H2** — `run-temporal-h2` (temporal data, 2-year calendar-horizon, baseline + xgboost).
+5. **Temporal H2 baselines** — `run-temporal-h2-baselines` (ridge + year_conditioned on temporal H2).
+6. **Temporal H2 hurdle** — `run-temporal-h2-hurdle` (hurdle baseline on temporal H2).
+7. **Temporal H2 ablations** — `run-temporal-h2-ablations` (five ablation experiments).
+8. **benchmark-analysis** — Writes `artifacts/reports/benchmark_comparison.json` and `.md`, and `ablation_review.json` and `.md`.
+
+After this, the comparison report has rows for all four benchmark modes (with baseline and xgboost at least), and temporal_h2 also has ridge, year_conditioned, and hurdle. You can run individual steps if you only need a subset.
+
+
+---
+
+## Benchmark comparison and ablation review
+
+After running one or more benchmark modes, a single command aggregates metrics and produces comparison reports.
+
+### Unified benchmark comparison
+
+- **Command:** `make benchmark-analysis` (or `scholarly-outcome-prediction benchmark-analysis`).
+- **Input:** All `artifacts/metrics/*.json` files.
+- **Output:** `artifacts/reports/benchmark_comparison.json` and `benchmark_comparison.md`.
+
+The report has one row per **(benchmark mode, model)** with primary metrics (RMSE, MAE, R²), test zero-rate, and MAE on zero-target vs nonzero-target subsets. The four benchmark modes considered are:
+
+- **representative_proxy** — Representative data, proxy target.
+- **temporal_proxy** — Temporal split, proxy target.
+- **representative_h2** — Representative data, 2-year calendar-horizon target.
+- **temporal_h2** — Temporal split, 2-year calendar-horizon target.
+
+If a combination was never run, it appears in a **Missing** list (no silent skips). This lets reviewers compare representative vs temporal and proxy vs H2 in one place.
+
+### Metadata ablations
+
+Ablations remove specific feature groups to see what signal the benchmark is using. Configs live in `configs/experiments/ablations/`:
+
+| Ablation | Features removed |
+|----------|------------------|
+| `no_publication_year` | `publication_year` |
+| `no_venue_name` | `venue_name` |
+| `no_primary_topic` | `primary_topic` |
+| `numeric_only` | All categorical features |
+| `categorical_only` | All numeric features |
+
+Each ablation is a separate experiment (e.g. `xgb_temporal_h2_no_publication_year`). Run them after temporal H2 data exists:
+
+```bash
+make run-temporal-h2          # data + baseline + xgboost
+make run-temporal-h2-ablations   # train + evaluate each ablation config
+make benchmark-analysis       # regenerates comparison + ablation review
+```
+
+**Ablation review** (`artifacts/reports/ablation_review.json` and `.md`) is produced by the same `benchmark-analysis` command. It lists each ablation run with metrics and **deltas vs the full XGBoost temporal H2 model**, plus a short interpretation (e.g. whether removing a feature group hurts or helps). If no ablation runs exist yet, the report shows a hint explaining how to populate it.
+
+---
+
+## Evaluation: zero-inflation and calibration/tail diagnostics
+
+Metrics JSONs written by the pipeline include more than RMSE/MAE/R² when using the current evaluation path:
+
+- **Zero-inflation** (`zero_inflation`): Test zero-rate and nonzero-rate; MAE and RMSE on the subset of rows with target = 0 and on the subset with target > 0. This makes it explicit whether performance is driven mostly by zero-target behaviour.
+- **Calibration/tail** (`calibration_tail`): For regression we do **not** use classification-style calibration. Instead we store:
+  - **By target decile:** For each decile of the actual target: count, mean actual, mean predicted, mean residual, MAE (to see over/under-prediction by bucket).
+  - **Top quantiles:** MAE and RMSE on the top 90th, 95th, 99th percentiles of the target (tail performance).
+
+These support questions like: *Is the model well-behaved on the upper tail?* and *How much of the overall metric comes from zero vs nonzero targets?*

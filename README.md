@@ -265,6 +265,59 @@ make run-example
 
 Each evaluation run writes a **self-describing** JSON file under `artifacts/metrics/` that includes: experiment name, target name/transform/mode, model name and params, feature lists, split settings, train/test sizes, dataset id, run timestamp, and the requested metrics (e.g. RMSE, MAE, R²). For **calendar-horizon** runs, metrics JSON also includes target semantics description, eligibility counts, target zero-rate, and how missing/empty `counts_by_year` is handled. See `docs/architecture.md` for the full list.
 
+Metrics JSONs now also include **zero-inflation** and **calibration/tail** diagnostics when produced by the pipeline: test zero-rate, MAE/RMSE on zero-target vs nonzero-target subsets, and by-target-decile and top-quantile summaries. These support answering whether performance is driven mostly by zero-target behavior and how well the model behaves on the upper tail.
+
+## Stronger baselines and benchmark analysis
+
+### Baselines
+
+Beyond the trivial (constant-mean) baseline, the benchmark includes:
+
+- **Ridge** — Regularized linear regression on the same metadata feature set; saved and reported like other models. Configs: e.g. `ridge_temporal_h2.yaml`, `ridge_regression.yaml`.
+- **Year-conditioned baseline** — Predicts the training median (or mean) of the target **per publication year**; unseen years get the global training median. This tests whether the model is mostly exploiting time/cohort effects. Config: `year_conditioned_temporal_h2.yaml` (assumes first numeric column is publication year).
+- **Hurdle baseline** (optional) — Two-stage: (1) zero vs nonzero classifier; (2) Ridge on positive targets only. Lightweight and interpretable; registered as `hurdle`.
+
+All baselines are runnable via the same `train` / `evaluate` (or `run` with two configs) workflow. For temporal H2 you can run baseline + XGBoost in one `run`, then ridge + year-conditioned in a second `run` (using `ridge_temporal_h2.yaml` and `year_conditioned_temporal_h2.yaml` as the two experiment configs), so that all four metrics files are produced for comparison.
+
+### Metadata ablations
+
+Ablation experiments remove specific feature groups to see what signal the benchmark is using. Supported ablations (via configs under `configs/experiments/ablations/`):
+
+- **Full** — No removal (base: `xgb_temporal_h2`).
+- **no_publication_year** — Drop `publication_year`.
+- **no_venue_name** — Drop `venue_name`.
+- **no_primary_topic** — Drop `primary_topic`.
+- **numeric_only** — Only numeric features.
+- **categorical_only** — Only categorical features.
+
+Run each ablation by training and evaluating with the corresponding YAML (e.g. `xgb_temporal_h2_no_publication_year.yaml`). Results are aggregated by the benchmark-analysis step into an **ablation review** artifact.
+
+### Calibration and tail diagnostics (regression)
+
+The pipeline does **not** treat regression like classification calibration. It adds transparent **bucketed diagnostics**:
+
+- **By target decile** — For each decile of the actual target: count, mean actual, mean predicted, mean residual, MAE. Surfaces over/under-prediction by bucket.
+- **Top quantiles** — MAE and RMSE on the top 90th, 95th, 99th percentiles of the target (tail performance).
+- **Zero vs nonzero** — Zero-rate, MAE/RMSE on rows with target = 0 and on rows with target > 0.
+
+These are stored in each metrics JSON under `zero_inflation` and `calibration_tail` when the run uses the current evaluation path. They help answer: is performance driven mostly by zero-target behavior? How well does the model do on the upper tail?
+
+### Unified benchmark comparison and ablation review
+
+A single **benchmark-analysis** step scans `artifacts/metrics/*.json` and produces:
+
+1. **Benchmark comparison** — `artifacts/reports/benchmark_comparison.json` and `.md`: one row per (benchmark mode, model) with primary metrics, zero-rate, and zero/nonzero MAE. The four benchmark modes are: representative proxy, temporal proxy, representative H2, temporal H2. Missing runs are listed explicitly (not silently skipped).
+2. **Ablation review** — `artifacts/reports/ablation_review.json` and `.md`: each ablation run vs the full XGBoost temporal H2 model, with metric deltas and a short interpretation.
+
+Run it after you have one or more metrics files:
+
+```bash
+scholarly-outcome-prediction benchmark-analysis
+# Optional: --artifacts-dir ./artifacts --out-dir ./artifacts/reports
+```
+
+This lets a reviewer compare representative vs temporal and proxy vs H2, and see how much each metadata group matters (ablations) and how zero-inflation and tail behavior look.
+
 ## Project diagnostics and transparency
 
 The repo includes a **diagnostics** pass to keep the pipeline inspectable and debuggable.
