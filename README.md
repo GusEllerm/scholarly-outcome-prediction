@@ -154,8 +154,8 @@ The pipeline supports two target families; do not confuse them.
 
 - **Proxy** (`target_mode: proxy`): Uses current cumulative `cited_by_count` from the snapshot. Simple and always available, but mixes publication ages and does not fix a time window — useful for debugging and comparison only.
 - **Calendar-horizon** (`target_mode: calendar_horizon`): Derives the target from OpenAlex `counts_by_year` (citations bucketed by calendar year). You choose:
-  - **Horizon length** (`horizon_years`, e.g. 2): how many full calendar years to include.
-  - **Include publication year** (`include_publication_year: true/false`): if `true`, the window is publication year through publication year + (horizon_years − 1); if `false`, the window is the *next* `horizon_years` full calendar years after publication year.
+  - **Horizon length** (`horizon_years`, e.g. 2): how far out the **last** calendar year in the horizon extends, relative to publication year.
+  - **Include publication year** (`include_publication_year: true/false`): if `true`, the window is publication year through publication year + `horizon_years` (inclusive) — i.e. `horizon_years + 1` calendar years are summed when including publication year. If `false`, the window is the *next* `horizon_years` full calendar years after publication year.
 
 **Important:** These are **calendar-year** targets, not exact month-level windows. We use honest naming (e.g. `citations_within_2_calendar_years`, `citations_in_next_2_calendar_years`) and do *not* claim “citations after exactly 24 months”.
 

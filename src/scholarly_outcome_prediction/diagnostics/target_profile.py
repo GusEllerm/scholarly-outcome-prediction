@@ -57,8 +57,12 @@ def build_target_semantics_description(cfg: Any, eligibility_info: dict[str, Any
     h = c.get("horizon_years") or 0
     transform = c.get("transform") or "none"
     if inc:
+        # When include_publication_year is True, the implementation sums years
+        # publication_year through publication_year + horizon_years (inclusive),
+        # i.e. horizon_years+1 calendar years.
         desc = (
-            f"Target = sum of counts_by_year for years publication_year through publication_year+{h - 1}. "
+            f"Target = sum of counts_by_year for years publication_year through publication_year+{h} "
+            f"(inclusive; horizon_years+1 calendar years when including publication year). "
             f"Transform: {transform}."
         )
     else:
@@ -129,10 +133,13 @@ def build_target_profile(
         inc = cfg.get("include_publication_year", True)
         h = cfg.get("horizon_years") or 0
         if inc:
+            # When include_publication_year is True, the implementation sums years
+            # publication_year through publication_year + horizon_years (inclusive),
+            # i.e. horizon_years+1 calendar years.
             target_semantics_note = (
                 f"Target is the sum of citation counts from counts_by_year for years "
-                f"publication_year through publication_year + {h - 1} (inclusive). "
-                f"Calendar-year granularity, not exact month-level windows."
+                f"publication_year through publication_year + {h} (inclusive; horizon_years+1 calendar years when "
+                f"including publication year). Calendar-year granularity, not exact month-level windows."
             )
         else:
             target_semantics_note = (
