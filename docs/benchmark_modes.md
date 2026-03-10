@@ -67,6 +67,20 @@ make validate-latest-pilot
 scholarly-outcome-prediction validate --data-config configs/data/openalex_representative_articles_1000.yaml
 ```
 
-## Proxy target
+## Targets: proxy and calendar-horizon
 
-Both modes currently use the **proxy** target (`cited_by_count` with optional `log1p` transform). A future **research** target (e.g. fixed-horizon citations) is not implemented yet; config uses `target_mode: proxy` and run artifacts record it.
+The benchmarks now support two target families:
+
+- **Proxy target** (`target_mode: proxy`): present-day cumulative `cited_by_count` from the OpenAlex snapshot, with optional `log1p` transform. This is simple and always available, but mixes publication ages and does not fix a time window.
+- **Calendar-horizon target** (`target_mode: calendar_horizon`): a **fixed-horizon citation** target derived from `counts_by_year` (citations bucketed by calendar year). You configure:
+  - `horizon_years` (e.g. 2): how far out the **last** calendar year in the horizon extends, relative to publication year.
+  - `include_publication_year` (true/false):
+    - If `true`, the implementation sums years `publication_year` through `publication_year + horizon_years` (inclusive) – i.e. **`horizon_years + 1` calendar years** when including publication year.
+    - If `false`, the window is the *next* `horizon_years` full calendar years after publication year (e.g. `publication_year+1` through `publication_year+horizon_years`).
+
+These are **calendar-year** horizons, not month-level windows. Eligibility is enforced by requiring that the latest citation year observed in `counts_by_year` is at least `publication_year + horizon_years`; rows that do not have a fully observed horizon are excluded, and the exclusion counts are reported in run metadata and the target profile.
+
+Representative and temporal pilots both have proxy and 2-year calendar-horizon examples:
+
+- Representative: `baseline_representative`, `xgb_representative` (proxy) and `baseline_representative_h2`, `xgb_representative_h2` (2-year calendar-horizon).
+- Temporal: `baseline_temporal`, `xgb_temporal` (proxy) and `baseline_temporal_h2`, `xgb_temporal_h2` (2-year calendar-horizon).
