@@ -1,6 +1,10 @@
 # Ablation: XGBoost temporal H2 without authors_count (fine-grained numeric).
 experiment_name: xgb_temporal_h2_no_authors_count
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_h2
+  model_family: tree_model
+  is_diagnostic_model: false
 ablation:
   name: no_authors_count
   features_removed: [authors_count]

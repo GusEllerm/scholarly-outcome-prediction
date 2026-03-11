@@ -21,7 +21,7 @@ from scholarly_outcome_prediction.evaluation import (
 from scholarly_outcome_prediction.features import build_feature_matrix, build_preprocessor
 from scholarly_outcome_prediction.logging_utils import setup_logging, get_logger
 from scholarly_outcome_prediction.models import get_model_builder
-from scholarly_outcome_prediction.settings import load_data_config, load_experiment_config
+from scholarly_outcome_prediction.settings import load_data_config, load_current_experiment_config
 from scholarly_outcome_prediction.utils.io import load_jsonl, read_parquet, write_parquet
 from scholarly_outcome_prediction.utils.seeds import set_global_seed
 
@@ -169,7 +169,11 @@ def train(
 ) -> None:
     """Train model and save pipeline to artifacts/models."""
     root = _ensure_project_cwd()
-    cfg = load_experiment_config(root / config)
+    try:
+        cfg = load_current_experiment_config(root / config)
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1)
     set_global_seed(cfg.split.random_state)
 
     processed_path = root / cfg.data.processed_path
@@ -251,7 +255,11 @@ def evaluate(
 ) -> None:
     """Load model and data, compute metrics, save to artifacts/metrics."""
     root = _ensure_project_cwd()
-    cfg = load_experiment_config(root / config)
+    try:
+        cfg = load_current_experiment_config(root / config)
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1)
     set_global_seed(cfg.split.random_state)
 
     model_path = root / "artifacts" / "models" / f"{cfg.experiment_name}.joblib"
@@ -345,8 +353,12 @@ def run_pipeline_from_configs(
     # Project root: configs/data/foo.yaml -> parents[2] = project root
     root = data_config_path.resolve().parents[2]
     data_cfg = load_data_config(data_config_path)
-    base_cfg = load_experiment_config(baseline_config_path)
-    xgb_cfg = load_experiment_config(xgb_config_path)
+    try:
+        base_cfg = load_current_experiment_config(baseline_config_path)
+        xgb_cfg = load_current_experiment_config(xgb_config_path)
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1)
 
     # Fetch
     out_path = root / data_cfg.output_path

@@ -1,6 +1,10 @@
 # Ablation: XGBoost temporal H2 without primary_topic.
 experiment_name: xgb_temporal_h2_no_primary_topic
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_h2
+  model_family: tree_model
+  is_diagnostic_model: false
 ablation:
   name: no_primary_topic
   features_removed: [primary_topic]

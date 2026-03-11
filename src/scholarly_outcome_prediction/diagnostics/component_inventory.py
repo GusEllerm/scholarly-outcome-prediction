@@ -14,7 +14,7 @@ def build_component_inventory() -> dict[str, Any]:
         **meta,
         "critical_path_for_run": [
             "scholarly_outcome_prediction.cli (run -> run_pipeline_from_configs)",
-            "scholarly_outcome_prediction.settings (load_data_config, load_experiment_config)",
+            "scholarly_outcome_prediction.settings (load_data_config, load_experiment_config, load_current_experiment_config)",
             "scholarly_outcome_prediction.acquisition.fetch (fetch_and_save)",
             "scholarly_outcome_prediction.acquisition.openalex_client (fetch_works_sample, fetch_works_page)",
             "scholarly_outcome_prediction.utils.io (load_jsonl, write_parquet, read_parquet)",

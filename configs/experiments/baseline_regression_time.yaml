@@ -2,6 +2,10 @@
 # Use with data prepared from openalex_pilot_articles or any dataset with publication_year.
 experiment_name: baseline_regression_time
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_proxy
+  model_family: trivial_baseline
+  is_diagnostic_model: false
 
 data:
   processed_path: "data/processed/openalex_pilot_articles.parquet"

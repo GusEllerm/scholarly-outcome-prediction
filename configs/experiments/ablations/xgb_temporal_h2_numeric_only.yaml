@@ -1,6 +1,10 @@
 # Ablation: XGBoost temporal H2 with numeric features only.
 experiment_name: xgb_temporal_h2_numeric_only
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_h2
+  model_family: tree_model
+  is_diagnostic_model: false
 ablation:
   name: numeric_only
   features_removed: [type, language, venue_name, primary_topic, open_access_is_oa]

@@ -37,7 +37,7 @@ from scholarly_outcome_prediction.features import build_feature_matrix, build_pr
 from scholarly_outcome_prediction.features.targets import prepare_df_for_target
 from scholarly_outcome_prediction.evaluation.metrics import compute_metrics
 from scholarly_outcome_prediction.evaluation.report import load_model_pipeline
-from scholarly_outcome_prediction.settings import load_experiment_config
+from scholarly_outcome_prediction.settings import load_current_experiment_config
 from scholarly_outcome_prediction.utils.io import load_json, read_parquet, save_json
 from scholarly_outcome_prediction.utils.seeds import set_global_seed
 
@@ -76,8 +76,8 @@ def run_review(
     baseline_config_path = baseline_config_path or ROOT / "configs" / "experiments" / "baseline_temporal_h2.yaml"
     xgb_config_path = xgb_config_path or ROOT / "configs" / "experiments" / "xgb_temporal_h2.yaml"
     artifacts_root = artifacts_root or ROOT / "artifacts"
-    base_cfg = load_experiment_config(baseline_config_path)
-    xgb_cfg = load_experiment_config(xgb_config_path)
+    base_cfg = load_current_experiment_config(baseline_config_path)
+    xgb_cfg = load_current_experiment_config(xgb_config_path)
     processed_path = processed_path or ROOT / base_cfg.data.processed_path
 
     if not processed_path.exists():

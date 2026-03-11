@@ -2,6 +2,10 @@
 # Use for ablation_review: compare to xgb_temporal_h2 (full).
 experiment_name: xgb_temporal_h2_no_publication_year
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_h2
+  model_family: tree_model
+  is_diagnostic_model: false
 ablation:
   name: no_publication_year
   features_removed: [publication_year]

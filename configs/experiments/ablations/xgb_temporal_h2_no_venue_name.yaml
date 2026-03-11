@@ -1,6 +1,10 @@
 # Ablation: XGBoost temporal H2 without venue_name.
 experiment_name: xgb_temporal_h2_no_venue_name
 task_type: regression
+benchmark:
+  benchmark_mode: temporal_h2
+  model_family: tree_model
+  is_diagnostic_model: false
 ablation:
   name: no_venue_name
   features_removed: [venue_name]

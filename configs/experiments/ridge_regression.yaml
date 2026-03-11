@@ -1,5 +1,9 @@
 experiment_name: ridge_regression
 task_type: regression
+benchmark:
+  benchmark_mode: representative_proxy
+  model_family: linear_baseline
+  is_diagnostic_model: false
 
 data:
   processed_path: "data/processed/openalex_sample_100.parquet"

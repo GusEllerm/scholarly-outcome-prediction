@@ -1,5 +1,9 @@
 experiment_name: xgb_regression
 task_type: regression
+benchmark:
+  benchmark_mode: representative_proxy
+  model_family: tree_model
+  is_diagnostic_model: false
 
 data:
   processed_path: "data/processed/openalex_pilot.parquet"

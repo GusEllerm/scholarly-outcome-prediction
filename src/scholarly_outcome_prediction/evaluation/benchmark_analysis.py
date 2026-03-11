@@ -1,9 +1,10 @@
 """Unified benchmark comparison and ablation review from metrics artifacts.
 
-Classification prefers explicit metadata from run artifacts (benchmark_mode, model_family,
-is_diagnostic_model, ablation_name, ablation_features_removed, ablation_type). Fallback
-inference from experiment_name/dataset_id is used only for older artifacts; fallback is
-narrow and logged.
+Classification uses explicit metadata from run artifacts when present (benchmark_mode,
+model_family, is_diagnostic_model, ablation_name, ablation_features_removed, ablation_type).
+Legacy compatibility: for older metrics JSONs that lack these fields, inference from
+experiment_name/dataset_id and fallback maps is used and labeled as legacy_inferred.
+Current job configs must not rely on this; they must set benchmark (and ablation) in YAML.
 """
 
 from __future__ import annotations
@@ -20,8 +21,8 @@ logger = get_logger(__name__)
 # Canonical benchmark modes and target modes for comparison table
 BENCHMARK_MODES = ["representative_proxy", "temporal_proxy", "representative_h2", "temporal_h2"]
 ABLATION_FULL_EXPERIMENT = "xgb_temporal_h2"
-# Fallback only: used when metrics lack explicit ablation_features_removed (older runs).
-# New runs should set ablation block in experiment config; that is the single source of truth.
+# Legacy compatibility only: used when reading older metrics artifacts that lack
+# explicit ablation_features_removed. Current runs must set ablation in experiment config.
 ABLATION_FEATURES_REMOVED_FALLBACK: dict[str, list[str]] = {
     "no_publication_year": ["publication_year"],
     "no_venue_name": ["venue_name"],
@@ -33,13 +34,14 @@ ABLATION_FEATURES_REMOVED_FALLBACK: dict[str, list[str]] = {
     "no_institutions_count": ["institutions_count"],
 }
 ABLATION_TYPE_COARSE = {"no_publication_year", "no_venue_name", "no_primary_topic", "numeric_only", "categorical_only"}
-# Fallback only: when metrics lack explicit model_family / is_diagnostic_model
+# Legacy compatibility only: when reading older metrics that lack explicit model_family / is_diagnostic_model.
+# Values are normalized to the same canonical snake_case vocabulary used by explicit metadata.
 MODEL_FAMILY_FALLBACK: dict[str, str] = {
-    "baseline": "trivial baseline",
-    "ridge": "linear baseline",
-    "year_conditioned": "diagnostic baseline",
-    "hurdle": "hurdle baseline",
-    "xgboost": "tree model",
+    "baseline": "trivial_baseline",
+    "ridge": "linear_baseline",
+    "year_conditioned": "diagnostic_baseline",
+    "hurdle": "hurdle_baseline",
+    "xgboost": "tree_model",
 }
 DIAGNOSTIC_ONLY_MODELS_FALLBACK = {"year_conditioned"}
 
@@ -47,8 +49,8 @@ DIAGNOSTIC_ONLY_MODELS_FALLBACK = {"year_conditioned"}
 ABLATION_FEATURES_REMOVED = ABLATION_FEATURES_REMOVED_FALLBACK
 
 
-def _infer_benchmark_mode(experiment_name: str, data: dict[str, Any]) -> str | None:
-    """Fallback: infer benchmark mode from experiment_name and dataset_id. Prefer explicit data['benchmark_mode']."""
+def _legacy_infer_benchmark_mode(experiment_name: str, data: dict[str, Any]) -> str | None:
+    """Legacy compatibility: infer benchmark mode from experiment_name and dataset_id for older artifacts only."""
     name = (experiment_name or "").lower()
     dataset_id = (data.get("dataset_id") or data.get("effective_dataset_id") or "").lower()
     rep = "representative" in name or "representative" in dataset_id
@@ -66,15 +68,15 @@ def _infer_benchmark_mode(experiment_name: str, data: dict[str, Any]) -> str | N
 
 
 def _resolve_benchmark_mode(exp: str, data: dict[str, Any]) -> tuple[str | None, str]:
-    """Resolve benchmark mode: explicit if present, else infer. Returns (mode, classification_source)."""
+    """Resolve benchmark mode: explicit if present, else legacy inference for older artifacts. Returns (mode, classification_source)."""
     explicit = data.get("benchmark_mode")
     if explicit and explicit.strip():
         return explicit.strip(), "explicit"
-    inferred = _infer_benchmark_mode(exp, data)
+    inferred = _legacy_infer_benchmark_mode(exp, data)
     if inferred is not None:
-        logger.debug("benchmark_mode inferred for %s (missing explicit benchmark_mode)", exp)
-        return inferred, "inferred"
-    return None, "inferred"
+        logger.debug("benchmark_mode legacy_inferred for %s (missing explicit benchmark_mode)", exp)
+        return inferred, "legacy_inferred"
+    return None, "legacy_inferred"
 
 
 def _infer_target_mode(experiment_name: str, data: dict[str, Any]) -> str:
@@ -88,25 +90,25 @@ def _infer_target_mode(experiment_name: str, data: dict[str, Any]) -> str:
 
 
 def _resolve_model_family(model_name: str, data: dict[str, Any]) -> tuple[str, str]:
-    """Resolve model_family: explicit if present, else fallback dict. Returns (family, classification_source)."""
+    """Resolve model_family: explicit if present, else legacy fallback for older artifacts. Returns (family, classification_source)."""
     explicit = data.get("model_family")
     if explicit and explicit.strip():
         return explicit.strip(), "explicit"
     family = MODEL_FAMILY_FALLBACK.get(model_name, "other")
-    logger.debug("model_family inferred for %s (missing explicit model_family)", model_name)
-    return family, "inferred"
+    logger.debug("model_family legacy_inferred for %s (missing explicit model_family)", model_name)
+    return family, "legacy_inferred"
 
 
 def _resolve_is_diagnostic(model_name: str, data: dict[str, Any]) -> tuple[bool, str]:
-    """Resolve is_diagnostic: explicit if present, else fallback set. Returns (is_diagnostic, classification_source)."""
+    """Resolve is_diagnostic: explicit if present, else legacy fallback for older artifacts. Returns (is_diagnostic, classification_source)."""
     explicit = data.get("is_diagnostic_model")
     if explicit is not None:
         return bool(explicit), "explicit"
-    return model_name in DIAGNOSTIC_ONLY_MODELS_FALLBACK, "inferred"
+    return model_name in DIAGNOSTIC_ONLY_MODELS_FALLBACK, "legacy_inferred"
 
 
 def _is_ablation_from_data(data: dict[str, Any], experiment_name: str) -> bool:
-    """True if this run is an ablation: has explicit ablation_name or matches legacy naming."""
+    """True if this run is an ablation: has explicit ablation_name or matches legacy naming (older artifacts only)."""
     if data.get("ablation_name"):
         return True
     if not experiment_name or not experiment_name.startswith("xgb_temporal_h2_"):
@@ -116,7 +118,7 @@ def _is_ablation_from_data(data: dict[str, Any], experiment_name: str) -> bool:
 
 
 def _ablation_name_from_data(data: dict[str, Any], experiment_name: str) -> str | None:
-    """Return ablation name: explicit if present, else from experiment_name suffix."""
+    """Return ablation name: explicit if present, else from experiment_name suffix (legacy compatibility)."""
     explicit = data.get("ablation_name")
     if explicit and explicit.strip():
         return explicit.strip()
@@ -127,7 +129,7 @@ def _ablation_name_from_data(data: dict[str, Any], experiment_name: str) -> str 
 
 
 def _ablation_features_removed_from_data(data: dict[str, Any], ablation_name: str | None) -> list[str]:
-    """Authoritative: explicit ablation_features_removed from run artifact; else fallback dict for legacy runs."""
+    """Explicit ablation_features_removed from run artifact is authoritative; else legacy fallback for older artifacts."""
     explicit = data.get("ablation_features_removed")
     if explicit is not None and isinstance(explicit, list):
         return list(explicit)
@@ -232,7 +234,7 @@ def build_benchmark_comparison(metrics_list: list[dict[str, Any]]) -> dict[str, 
         "rows": rows,
         "missing": missing,
         "interpretation_notes": interpretation_notes,
-        "notes": "Eligibility filtering and target semantics (e.g. horizon) apply per run; see run metadata in each metrics JSON. Models with is_diagnostic_only=true are for interpretation only, not as primary baselines. Rows include benchmark_mode_source, model_family_source, is_diagnostic_only_source (explicit vs inferred) when classification was from run metadata vs fallback.",
+        "notes": "Eligibility filtering and target semantics (e.g. horizon) apply per run; see run metadata in each metrics JSON. Models with is_diagnostic_only=true are for interpretation only, not as primary baselines. Rows include benchmark_mode_source, model_family_source, is_diagnostic_only_source: 'explicit' from run metadata or 'legacy_inferred' for older artifacts only.",
     }
 
 
@@ -258,7 +260,7 @@ def build_ablation_review(metrics_list: list[dict[str, Any]]) -> dict[str, Any]:
             "ablation_name": name,
             "experiment_name": exp,
             "features_removed": features_removed,
-            "features_removed_source": "explicit" if data.get("ablation_features_removed") is not None else "fallback",
+            "features_removed_source": "explicit" if data.get("ablation_features_removed") is not None else "legacy_inferred",
             "ablation_type": ablation_type,
             "benchmark_mode": "temporal_h2",
             "rmse": data.get("rmse"),
@@ -368,6 +370,13 @@ def comparison_to_md(payload: dict[str, Any]) -> str:
 
 def ablation_to_md(payload: dict[str, Any]) -> str:
     """Render ablation_review payload as Markdown."""
+
+    def _fmt(v: Any) -> Any:
+        """Format numeric values to 4 decimal places for readability."""
+        if isinstance(v, (int, float)):
+            return f"{v:.4f}"
+        return v if v is not None else "—"
+
     lines = [
         "# " + payload.get("report_name", "Ablation review"),
         "",
@@ -393,14 +402,14 @@ def ablation_to_md(payload: dict[str, Any]) -> str:
                 a.get("ablation_name", ""),
                 a.get("ablation_type", ""),
                 a.get("interpretation_tag", ""),
-                ", ".join(a.get("features_removed", []))[:36],
-                a.get("rmse") if a.get("rmse") is not None else "—",
-                a.get("mae") if a.get("mae") is not None else "—",
-                a.get("r2") if a.get("r2") is not None else "—",
-                a.get("delta_rmse") if a.get("delta_rmse") is not None else "—",
-                a.get("delta_mae") if a.get("delta_mae") is not None else "—",
-                a.get("delta_r2") if a.get("delta_r2") is not None else "—",
-                (a.get("interpretation") or "")[:40],
+                ", ".join(a.get("features_removed", [])),
+                _fmt(a.get("rmse")),
+                _fmt(a.get("mae")),
+                _fmt(a.get("r2")),
+                _fmt(a.get("delta_rmse")),
+                _fmt(a.get("delta_mae")),
+                _fmt(a.get("delta_r2")),
+                a.get("interpretation") or "",
             )
         )
     return "\n".join(lines)

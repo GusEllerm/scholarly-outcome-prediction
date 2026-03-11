@@ -52,6 +52,7 @@ def test_benchmark_comparison_with_partial_missing() -> None:
 
 
 def test_benchmark_comparison_one_run() -> None:
+    """Legacy metrics without explicit benchmark_mode/model_family get legacy_inferred classification."""
     metrics_list = [
         {
             "experiment_name": "baseline_temporal_h2",
@@ -68,14 +69,17 @@ def test_benchmark_comparison_one_run() -> None:
     comparison = build_benchmark_comparison(metrics_list)
     assert len(comparison["rows"]) == 1
     assert comparison["rows"][0]["benchmark_mode"] == "temporal_h2"
+    assert comparison["rows"][0]["benchmark_mode_source"] == "legacy_inferred"
     assert comparison["rows"][0]["model_name"] == "baseline"
-    assert comparison["rows"][0]["model_family"] == "trivial baseline"
+    # Legacy artifacts are normalized to canonical model_family vocabulary
+    assert comparison["rows"][0]["model_family"] == "trivial_baseline"
+    assert comparison["rows"][0]["model_family_source"] == "legacy_inferred"
     assert comparison["rows"][0]["test_zero_rate"] == 0.5
     assert len(comparison["missing"]) > 0
 
 
 def test_benchmark_comparison_year_conditioned_diagnostic_label() -> None:
-    """Year-conditioned appears with model_family and is_diagnostic_only."""
+    """Legacy metrics: year_conditioned gets legacy_inferred diagnostic baseline and is_diagnostic_only."""
     metrics_list = [
         {
             "experiment_name": "year_conditioned_temporal_h2",
@@ -90,12 +94,14 @@ def test_benchmark_comparison_year_conditioned_diagnostic_label() -> None:
     ]
     comparison = build_benchmark_comparison(metrics_list)
     assert len(comparison["rows"]) == 1
-    assert comparison["rows"][0]["model_family"] == "diagnostic baseline"
+    assert comparison["rows"][0]["model_family"] == "diagnostic_baseline"
+    assert comparison["rows"][0]["model_family_source"] == "legacy_inferred"
     assert comparison["rows"][0]["is_diagnostic_only"] is True
+    assert comparison["rows"][0]["is_diagnostic_only_source"] == "legacy_inferred"
 
 
 def test_ablation_review_no_full_model() -> None:
-    """Ablation review with only ablation runs (no full xgb_temporal_h2) still runs."""
+    """Legacy ablation metrics without explicit ablation_features_removed still readable; source is legacy_inferred."""
     metrics_list = [
         {
             "experiment_name": "xgb_temporal_h2_no_publication_year",
@@ -111,6 +117,7 @@ def test_ablation_review_no_full_model() -> None:
     assert len(review["ablations"]) == 1
     assert review["ablations"][0]["ablation_name"] == "no_publication_year"
     assert review["ablations"][0]["features_removed"] == ABLATION_FEATURES_REMOVED["no_publication_year"]
+    assert review["ablations"][0]["features_removed_source"] == "legacy_inferred"
     assert review["ablations"][0]["delta_rmse"] is None
 
 
@@ -275,8 +282,8 @@ def test_diagnostic_from_explicit_metadata() -> None:
     assert comparison["rows"][0]["is_diagnostic_only_source"] == "explicit"
 
 
-def test_old_artifacts_fallback() -> None:
-    """Metrics without explicit benchmark_mode/model_family still get inferred values (backward compat)."""
+def test_legacy_artifacts_compatibility() -> None:
+    """Older metrics JSONs without explicit benchmark_mode/model_family are still readable; classification is legacy_inferred."""
     metrics_list = [
         {
             "experiment_name": "baseline_representative",
@@ -290,6 +297,6 @@ def test_old_artifacts_fallback() -> None:
     comparison = build_benchmark_comparison(metrics_list)
     assert len(comparison["rows"]) == 1
     assert comparison["rows"][0]["benchmark_mode"] == "representative_proxy"
-    assert comparison["rows"][0]["benchmark_mode_source"] == "inferred"
-    assert comparison["rows"][0]["model_family"] == "trivial baseline"
-    assert comparison["rows"][0]["model_family_source"] == "inferred"
+    assert comparison["rows"][0]["benchmark_mode_source"] == "legacy_inferred"
+    assert comparison["rows"][0]["model_family"] == "trivial_baseline"
+    assert comparison["rows"][0]["model_family_source"] == "legacy_inferred"

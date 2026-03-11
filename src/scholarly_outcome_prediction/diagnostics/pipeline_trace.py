@@ -36,7 +36,7 @@ def build_pipeline_trace() -> dict[str, Any]:
                 "step": 2,
                 "name": "load_configs",
                 "modules": ["scholarly_outcome_prediction.settings"],
-                "calls": ["load_data_config(data_config_path)", "load_experiment_config(baseline_config_path)", "load_experiment_config(xgb_config_path)"],
+                "calls": ["load_data_config(data_config_path)", "load_current_experiment_config(baseline_config_path)", "load_current_experiment_config(xgb_config_path)"],
                 "outputs": ["data_cfg", "base_cfg", "xgb_cfg"],
             },
             {
