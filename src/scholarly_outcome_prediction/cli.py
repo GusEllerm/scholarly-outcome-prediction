@@ -68,12 +68,18 @@ def main(
 @app.command()
 def fetch(
     config: Path = typer.Option(..., "--config", "-c", path_type=Path, help="Data config YAML"),
+    force_refresh: bool = typer.Option(
+        False,
+        "--force-refresh",
+        help="Bypass OpenAlex raw fetch cache and re-download from API",
+    ),
 ) -> None:
-    """Fetch OpenAlex sample and save raw JSONL."""
+    """Fetch OpenAlex sample and save raw JSONL. Uses deterministic cache when same request identity."""
     root = _ensure_project_cwd()
     cfg = load_data_config(root / config)
     out_path = root / cfg.output_path
-    fetch_and_save(
+    cache_root = root / "artifacts" / "cache"
+    result = fetch_and_save(
         output_path=out_path,
         sample_size=cfg.sample_size,
         from_publication_date=cfg.from_publication_date,
@@ -83,7 +89,11 @@ def fetch(
         sort=getattr(cfg, "sort", None),
         stratify_by_year=getattr(cfg, "stratify_by_year", False),
         use_random_sample=getattr(cfg, "use_random_sample", False),
+        force_refresh=force_refresh,
+        cache_root=cache_root,
     )
+    if result.from_cache:
+        logger.info("Raw fetch reused from cache (key=%s); %d rows", result.cache_key, result.row_count)
 
 
 @app.command()
@@ -295,6 +305,11 @@ def run(
     xgb_config: Path = typer.Option(
         ..., "--xgb-config", path_type=Path, help="XGBoost experiment config"
     ),
+    force_refresh: bool = typer.Option(
+        False,
+        "--force-refresh",
+        help="Bypass OpenAlex raw fetch cache and re-download from API",
+    ),
 ) -> None:
     """Run full pipeline: fetch -> prepare -> train (baseline + XGBoost) -> evaluate both."""
     root = _ensure_project_cwd()
@@ -302,6 +317,7 @@ def run(
         data_config_path=root / data_config,
         baseline_config_path=root / baseline_config,
         xgb_config_path=root / xgb_config,
+        force_refresh=force_refresh,
     )
 
 
@@ -411,6 +427,7 @@ def run_pipeline_from_configs(
     data_config_path: Path,
     baseline_config_path: Path,
     xgb_config_path: Path,
+    force_refresh: bool = False,
 ) -> None:
     """Run full pipeline: fetch -> prepare -> train baseline -> train xgb -> evaluate both."""
     setup_logging()
@@ -424,9 +441,10 @@ def run_pipeline_from_configs(
         typer.echo(str(e), err=True)
         raise typer.Exit(1)
 
-    # Fetch
+    # Fetch (with deterministic cache; --force-refresh bypasses)
     out_path = root / data_cfg.output_path
-    fetch_and_save(
+    cache_root = root / "artifacts" / "cache"
+    fetch_result = fetch_and_save(
         output_path=out_path,
         sample_size=data_cfg.sample_size,
         from_publication_date=data_cfg.from_publication_date,
@@ -436,7 +454,11 @@ def run_pipeline_from_configs(
         sort=getattr(data_cfg, "sort", None),
         stratify_by_year=getattr(data_cfg, "stratify_by_year", False),
         use_random_sample=getattr(data_cfg, "use_random_sample", False),
+        force_refresh=force_refresh,
+        cache_root=cache_root,
     )
+    if fetch_result.from_cache:
+        logger.info("Raw fetch reused from cache (key=%s); %d rows", fetch_result.cache_key, fetch_result.row_count)
     # Prepare
     records = load_jsonl(out_path)
     if not records:
@@ -497,6 +519,9 @@ def run_pipeline_from_configs(
         expected_work_types=expected_work_types,
         source_config_path=str(data_config_path),
         generation_params=generation_params,
+        raw_fetch_from_cache=fetch_result.from_cache,
+        openalex_cache_key=fetch_result.cache_key,
+        openalex_cache_path=fetch_result.cache_path,
     )
     if not validation_result.get("passed", True):
         typer.echo("Validation failed: " + "; ".join(validation_result.get("errors", [])), err=True)

@@ -303,6 +303,9 @@ def run_validation_and_save(
     min_distinct_venues_representative: int | None = DEFAULT_MIN_DISTINCT_VENUES_REPRESENTATIVE,
     source_config_path: str | Path | None = None,
     generation_params: dict[str, Any] | None = None,
+    raw_fetch_from_cache: bool | None = None,
+    openalex_cache_key: str | None = None,
+    openalex_cache_path: str | None = None,
 ) -> tuple[dict[str, Any], Path, Path]:
     """
     Run raw + processed validation, merge results, save JSON and MD. Returns (merged_result, json_path, md_path).
@@ -377,6 +380,12 @@ def run_validation_and_save(
         provenance["generation_params"] = generation_params
     if selection_strategy_summary:
         provenance["selection_strategy_summary"] = selection_strategy_summary
+    if raw_fetch_from_cache is not None:
+        provenance["raw_fetch_from_cache"] = raw_fetch_from_cache
+    if openalex_cache_key is not None:
+        provenance["openalex_cache_key"] = openalex_cache_key
+    if openalex_cache_path is not None:
+        provenance["openalex_cache_path"] = openalex_cache_path
 
     merged: dict[str, Any] = {
         **meta,
@@ -408,6 +417,8 @@ def run_validation_and_save(
         f"- **Work ID fingerprint**: {prov.get('work_id_fingerprint') or 'n/a'}",
         f"- **Source config**: {prov.get('source_config_path') or 'n/a'}",
         f"- **Selection strategy**: {prov.get('selection_strategy_summary') or 'n/a'}",
+        f"- **Raw fetch from cache**: {prov.get('raw_fetch_from_cache', 'n/a')}",
+        f"- **OpenAlex cache key**: {prov.get('openalex_cache_key') or 'n/a'}",
         f"- **Passed**: {merged['passed']}",
         f"- **Validated at**: {merged['validated_at']}",
         "",
