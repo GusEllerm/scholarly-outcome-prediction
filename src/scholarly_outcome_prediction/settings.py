@@ -46,8 +46,21 @@ class DataConfig(BaseModel):
     # When True, fetch per-year and combine so the sample spans the full date range.
     stratify_by_year: bool = False
     # When True with stratify_by_year, use OpenAlex sample+seed per year for within-year random sampling (representative).
-    # When False with stratify_by_year, use cursor paging (temporal; order not randomized within year).
+    # When False with stratify_by_year, use cursor paging (temporal legacy; order not randomized within year).
     use_random_sample: bool = False
+    # Optional: "representative" | "temporal". Records dataset identity for validation/provenance.
+    dataset_mode: Literal["representative", "temporal"] | None = None
+
+    @model_validator(mode="after")
+    def dataset_mode_matches_sampling(self) -> "DataConfig":
+        """Lightly validate dataset_mode vs sampling; allow temporal to use either cursor or random."""
+        mode = self.dataset_mode
+        if mode == "representative" and not self.use_random_sample and self.stratify_by_year:
+            raise ValueError(
+                "dataset_mode=representative with stratify_by_year=true requires use_random_sample=true "
+                "so representative uses within-year random sampling."
+            )
+        return self
 
 
 class SplitConfig(BaseModel):

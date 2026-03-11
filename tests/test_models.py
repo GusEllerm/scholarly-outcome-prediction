@@ -5,7 +5,7 @@ import pytest
 from sklearn.pipeline import Pipeline
 
 from scholarly_outcome_prediction.features import build_preprocessor
-from scholarly_outcome_prediction.models import get_model_builder, BaselineRegressor
+from scholarly_outcome_prediction.models import get_model_builder, list_models, BaselineRegressor
 
 
 def _xgboost_available() -> bool:
@@ -71,6 +71,13 @@ def test_registry_unknown_raises() -> None:
         get_model_builder("unknown_model")
 
 
+def test_list_models_includes_active_benchmark_models() -> None:
+    """Registry exposes active benchmark model names (excluding experimental e.g. tweedie)."""
+    names = list_models()
+    for name in ("elastic_net", "extra_trees", "hist_gradient_boosting"):
+        assert name in names, f"Expected {name} in list_models()"
+
+
 def test_registry_median_baseline(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
     from scholarly_outcome_prediction.models.median_baseline import MedianBaselineRegressor
 
@@ -88,6 +95,41 @@ def test_registry_ridge(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
     model.fit(X, y)
     pred = model.predict(X)
     assert pred.shape == y.shape
+
+
+def test_registry_elastic_net(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
+    X, y = small_X_y
+    model = get_model_builder("elastic_net")(params={})
+    model.fit(X, y)
+    pred = model.predict(X)
+    assert pred.shape == y.shape
+
+
+def test_registry_extra_trees(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
+    X, y = small_X_y
+    model = get_model_builder("extra_trees")(params={"n_estimators": 5})
+    model.fit(X, y)
+    pred = model.predict(X)
+    assert pred.shape == y.shape
+
+
+def test_registry_hist_gradient_boosting(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
+    X, y = small_X_y
+    model = get_model_builder("hist_gradient_boosting")(params={"max_iter": 10})
+    model.fit(X, y)
+    pred = model.predict(X)
+    assert pred.shape == y.shape
+
+
+def test_registry_tweedie(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
+    """Tweedie is registered for experimental use but excluded from benchmark comparison."""
+    X, y = small_X_y
+    y = np.abs(y) + 0.1
+    model = get_model_builder("tweedie")(params={})
+    model.fit(X, y)
+    pred = model.predict(X)
+    assert pred.shape == y.shape
+    assert (pred >= 0).all()
 
 
 def test_year_conditioned_baseline_behavior() -> None:
@@ -125,6 +167,19 @@ def test_registry_hurdle(small_X_y: tuple[np.ndarray, np.ndarray]) -> None:
     y = np.array([0.0, 0.0, 1.0, 2.0, 3.0] * 4)
     X = np.random.randn(20, 4).astype(np.float32)
     model = get_model_builder("hurdle")(params={})
+    model.fit(X, y)
+    pred = model.predict(X)
+    assert pred.shape == y.shape
+    assert (pred >= 0).all()
+
+
+def test_hurdle_single_class_all_positive() -> None:
+    """Hurdle with train set that has only positive y (e.g. temporal h2 train) does not raise."""
+    from scholarly_outcome_prediction.models.hurdle_baseline import HurdleBaselineRegressor
+
+    X = np.random.randn(30, 4).astype(np.float32)
+    y = np.array([1.0, 2.0, 0.5] * 10)  # all > 0
+    model = HurdleBaselineRegressor()
     model.fit(X, y)
     pred = model.predict(X)
     assert pred.shape == y.shape

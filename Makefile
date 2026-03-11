@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: install lint format test clean run-example run-pilot run-pilot-time run-representative-pilot run-temporal-pilot run-representative-h2 run-temporal-h2 run-temporal-h2-baselines run-temporal-h2-hurdle run-temporal-h2-ablations run-representative-pilot-ridge run-temporal-pilot-ridge run-representative-h2-ridge run-full-benchmark validate-representative-pilot validate-temporal-pilot validate-latest-pilot profile-representative-pilot profile-temporal-pilot temporal-h2-review benchmark-analysis
+.PHONY: install lint format test clean run-example run-pilot run-pilot-time run-representative-pilot run-temporal-pilot run-representative-h2 run-temporal-h2 run-temporal-h2-baselines run-temporal-h2-hurdle run-temporal-h2-ablations run-new-benchmark-models run-representative-pilot-ridge run-temporal-pilot-ridge run-representative-h2-ridge run-full-benchmark validate-representative-pilot validate-temporal-pilot validate-latest-pilot profile-representative-pilot profile-temporal-pilot temporal-h2-review benchmark-analysis
 
 install:
 	uv sync --extra dev
@@ -112,14 +112,28 @@ run-representative-h2-ridge:
 	uv run scholarly-outcome-prediction train --config configs/experiments/ridge_representative_h2.yaml
 	uv run scholarly-outcome-prediction evaluate --config configs/experiments/ridge_representative_h2.yaml
 
+# Train and evaluate new benchmark models (elastic_net, extra_trees, hist_gradient_boosting) for all four modes.
+# Requires data from run-representative-pilot, run-representative-h2, run-temporal-pilot, run-temporal-h2.
+run-new-benchmark-models:
+	@echo "Training and evaluating new benchmark models (elastic_net, extra_trees, hist_gradient_boosting)..."
+	@for c in configs/experiments/elastic_net_representative.yaml configs/experiments/elastic_net_temporal.yaml \
+		configs/experiments/elastic_net_representative_h2.yaml configs/experiments/elastic_net_temporal_h2.yaml \
+		configs/experiments/extra_trees_representative.yaml configs/experiments/extra_trees_temporal.yaml \
+		configs/experiments/extra_trees_representative_h2.yaml configs/experiments/extra_trees_temporal_h2.yaml \
+		configs/experiments/hist_gradient_boosting_representative.yaml configs/experiments/hist_gradient_boosting_temporal.yaml \
+		configs/experiments/hist_gradient_boosting_representative_h2.yaml configs/experiments/hist_gradient_boosting_temporal_h2.yaml; do \
+	  echo "Training and evaluating $$c..."; \
+	  uv run scholarly-outcome-prediction train --config $$c && uv run scholarly-outcome-prediction evaluate --config $$c || exit 1; \
+	done
+
 # Generate unified benchmark comparison and ablation review from artifacts/metrics.
 benchmark-analysis:
 	uv run scholarly-outcome-prediction benchmark-analysis
 
 # Run the full benchmark suite: all four modes (representative proxy, representative H2, temporal proxy, temporal H2)
-# plus ridge for each mode, temporal H2 baselines (ridge, year_conditioned), hurdle, ablations; then comparison reports.
+# plus ridge for each mode, temporal H2 baselines (ridge, year_conditioned), hurdle, new models (elastic_net, extra_trees, hist_gradient_boosting), ablations; then comparison reports.
 # Ridge for temporal H2 is included in run-temporal-h2-baselines; ridge for other three modes via run-*-ridge.
-run-full-benchmark: run-representative-pilot run-representative-pilot-ridge run-representative-h2 run-representative-h2-ridge run-temporal-pilot run-temporal-pilot-ridge run-temporal-h2 run-temporal-h2-baselines run-temporal-h2-hurdle run-temporal-h2-ablations benchmark-analysis
+run-full-benchmark: run-representative-pilot run-representative-pilot-ridge run-representative-h2 run-representative-h2-ridge run-temporal-pilot run-temporal-pilot-ridge run-temporal-h2 run-temporal-h2-baselines run-temporal-h2-hurdle run-new-benchmark-models run-temporal-h2-ablations benchmark-analysis
 
 # Validate representative pilot dataset.
 validate-representative-pilot:
@@ -128,6 +142,16 @@ validate-representative-pilot:
 # Validate temporal pilot dataset.
 validate-temporal-pilot:
 	uv run scholarly-outcome-prediction validate --data-config configs/data/openalex_temporal_articles_1000.yaml
+
+# Audit row-level overlap between representative and temporal processed datasets (by openalex_id).
+# Run after fetch+prepare for both datasets to verify they are distinct. Output: artifacts/diagnostics/*_overlap_audit.json and .md.
+audit-dataset-overlap:
+	uv run scholarly-outcome-prediction audit-dataset-overlap \
+		--left data/processed/openalex_representative_articles_1000.parquet \
+		--right data/processed/openalex_temporal_articles_1000.parquet \
+		--label-left representative \
+		--label-right temporal \
+		--out-dir artifacts/diagnostics
 
 # Alias for validate-representative-pilot.
 validate-latest-pilot: validate-representative-pilot

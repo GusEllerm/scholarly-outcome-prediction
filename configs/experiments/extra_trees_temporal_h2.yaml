@@ -1,0 +1,50 @@
+# Temporal H2: ExtraTrees (bagged trees).
+experiment_name: extra_trees_temporal_h2
+task_type: regression
+benchmark:
+  benchmark_mode: temporal_h2
+  model_family: tree_model
+  is_diagnostic_model: false
+
+data:
+  processed_path: "data/processed/openalex_temporal_articles_1000.parquet"
+  dataset_id: openalex_temporal_articles_1000
+
+target:
+  name: citations_within_2_calendar_years
+  target_mode: calendar_horizon
+  source: counts_by_year
+  horizon_years: 2
+  include_publication_year: true
+  transform: log1p
+
+features:
+  numeric:
+    - publication_year
+    - referenced_works_count
+    - authors_count
+    - institutions_count
+  categorical:
+    - type
+    - language
+    - venue_name
+    - primary_topic
+    - open_access_is_oa
+
+split:
+  split_kind: time
+  time_column: publication_year
+  train_year_end: 2018
+  test_year_start: 2019
+  test_size: 0.2
+  random_state: 42
+
+model:
+  name: extra_trees
+  params: {}
+
+evaluation:
+  metrics:
+    - rmse
+    - mae
+    - r2

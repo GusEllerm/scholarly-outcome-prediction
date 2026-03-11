@@ -1,6 +1,7 @@
-"""Tests for diagnostic/report correctness: scopes, pipeline trace, artifact audit, shared stats."""
+"""Tests for diagnostic/report correctness: scopes, pipeline trace, artifact audit, shared stats, overlap audit."""
 
 import json
+import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -11,6 +12,8 @@ from scholarly_outcome_prediction.diagnostics import (
     build_pipeline_trace_from_run_context,
     audit_run_artifacts,
     profile_dataset,
+    compute_overlap_report,
+    run_overlap_audit,
 )
 from scholarly_outcome_prediction.diagnostics.dataset_stats import compute_canonical_dataset_stats
 from scholarly_outcome_prediction.validation.dataset_validation import validate_processed_dataset
@@ -288,3 +291,61 @@ def test_validation_and_profile_share_canonical_stats_keys() -> None:
     assert stats.get("publication_year") == validation.get("publication_year")
     assert stats.get("citation_distribution") == validation.get("citation_distribution")
     assert stats.get("missingness_summary") == validation.get("missingness_summary")
+
+
+def test_overlap_audit_identical_datasets() -> None:
+    """Overlap audit reports identical=True when both datasets have the same work IDs."""
+    df = pd.DataFrame({"openalex_id": ["W1", "W2", "W3"], "x": [1, 2, 3]})
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d)
+        left_path = path / "left.parquet"
+        right_path = path / "right.parquet"
+        df.to_parquet(left_path, index=False)
+        df.to_parquet(right_path, index=False)
+        report = compute_overlap_report(left_path, right_path)
+    assert report.get("error") is None
+    assert report["size_left"] == 3
+    assert report["size_right"] == 3
+    assert report["overlap_count"] == 3
+    assert report["identical"] is True
+    assert report["only_in_left_count"] == 0
+    assert report["only_in_right_count"] == 0
+
+
+def test_overlap_audit_partial_overlap() -> None:
+    """Overlap audit reports correct counts when datasets partially overlap."""
+    left_df = pd.DataFrame({"openalex_id": ["W1", "W2", "W3"], "x": [1, 2, 3]})
+    right_df = pd.DataFrame({"openalex_id": ["W2", "W3", "W4"], "x": [2, 3, 4]})
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d)
+        left_path = path / "left.parquet"
+        right_path = path / "right.parquet"
+        left_df.to_parquet(left_path, index=False)
+        right_df.to_parquet(right_path, index=False)
+        report = compute_overlap_report(left_path, right_path)
+    assert report.get("error") is None
+    assert report["size_left"] == 3
+    assert report["size_right"] == 3
+    assert report["overlap_count"] == 2
+    assert report["identical"] is False
+    assert report["only_in_left_count"] == 1
+    assert report["only_in_right_count"] == 1
+    assert "W1" in report["sample_only_in_left_ids"]
+    assert "W4" in report["sample_only_in_right_ids"]
+
+
+def test_run_overlap_audit_writes_json_and_md() -> None:
+    """run_overlap_audit writes JSON and Markdown report to out_dir."""
+    df = pd.DataFrame({"openalex_id": ["A", "B"], "x": [1, 2]})
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d)
+        left_path = path / "l.parquet"
+        right_path = path / "r.parquet"
+        df.to_parquet(left_path, index=False)
+        df.to_parquet(right_path, index=False)
+        out_dir = path / "reports"
+        report, json_path, md_path = run_overlap_audit(left_path, right_path, out_dir, label_left="L", label_right="R")
+        assert json_path.exists()
+        assert md_path.exists()
+        assert report["identical"] is True
+        assert "l_vs_r" in json_path.name.lower() or "L_vs_R" in json_path.name

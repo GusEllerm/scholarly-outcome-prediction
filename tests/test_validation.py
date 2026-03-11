@@ -164,6 +164,67 @@ def test_run_validation_and_save_dataset_scoped(healthy_df: pd.DataFrame) -> Non
         assert result.get("source_dataset_id") == "my_dataset"
 
 
+def test_run_validation_and_save_includes_provenance_when_provided(healthy_df: pd.DataFrame) -> None:
+    """run_validation_and_save records provenance (source_config_path, generation_params, work_id_fingerprint)."""
+    df = healthy_df.copy()
+    df["openalex_id"] = [f"W{i}" for i in range(len(df))]
+    with tempfile.TemporaryDirectory() as d:
+        out_dir = Path(d)
+        result, _, _ = run_validation_and_save(
+            raw_records=None,
+            df=df,
+            processed_path=Path("/fake/foo.parquet"),
+            out_dir=out_dir,
+            run_id=None,
+            min_row_count=10,
+            min_years_with_data=2,
+            max_venue_missingness_pct=95.0,
+            source_config_path="configs/data/representative.yaml",
+            generation_params={"stratify_by_year": True, "use_random_sample": True},
+        )
+        assert "provenance" in result
+        prov = result["provenance"]
+        assert prov.get("source_config_path") == "configs/data/representative.yaml"
+        assert prov.get("generation_params", {}).get("use_random_sample") is True
+        assert "work_id_fingerprint" in prov
+        assert prov["work_id_fingerprint"] is not None
+        assert "selection_strategy_summary" in prov
+
+
+def test_provenance_representative_vs_temporal_wording(healthy_df: pd.DataFrame) -> None:
+    """Provenance selection_strategy_summary distinguishes representative vs temporal semantics."""
+    df = healthy_df.copy()
+    df["openalex_id"] = [f"W{i}" for i in range(len(df))]
+    params = {"stratify_by_year": True, "use_random_sample": True}
+    with tempfile.TemporaryDirectory() as d:
+        out_dir = Path(d)
+        # Representative: should say broad sample, representative-oriented
+        result_rep, _, _ = run_validation_and_save(
+            raw_records=None,
+            df=df,
+            processed_path=Path("/fake/rep.parquet"),
+            out_dir=out_dir,
+            dataset_mode="representative",
+            generation_params=params,
+        )
+        summary_rep = result_rep["provenance"].get("selection_strategy_summary", "")
+        assert "Representative dataset" in summary_rep or "representative" in summary_rep.lower()
+        assert "broad" in summary_rep.lower() or "representative" in summary_rep.lower()
+        # Temporal: should say time-ordered evaluation, not merely representative sample
+        result_temp, _, _ = run_validation_and_save(
+            raw_records=None,
+            df=df,
+            processed_path=Path("/fake/temp.parquet"),
+            out_dir=out_dir,
+            dataset_mode="temporal",
+            generation_params=params,
+        )
+        summary_temp = result_temp["provenance"].get("selection_strategy_summary", "")
+        assert "Temporal dataset" in summary_temp or "temporal" in summary_temp.lower()
+        assert "time-ordered" in summary_temp
+        assert "Do not interpret this dataset as a representative sample" in summary_temp
+
+
 def test_validate_article_only_with_expected_work_types_no_warning() -> None:
     """When expected_work_types=['article'] and corpus is article-only, do not add 'single type only' warning."""
     df = pd.DataFrame({

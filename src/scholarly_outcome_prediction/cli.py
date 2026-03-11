@@ -28,6 +28,7 @@ from scholarly_outcome_prediction.utils.seeds import set_global_seed
 from scholarly_outcome_prediction.acquisition import fetch_and_save
 from scholarly_outcome_prediction.validation import run_validation_and_save
 from scholarly_outcome_prediction.evaluation.benchmark_analysis import run_benchmark_analysis
+from scholarly_outcome_prediction.diagnostics import run_overlap_audit
 
 app = typer.Typer(help="Scholarly outcome prediction pipeline")
 logger = get_logger(__name__)
@@ -119,22 +120,35 @@ def validate(
     if processed_path is None and data_config is None:
         typer.echo("Provide either --processed-path or --data-config.", err=True)
         raise typer.Exit(1)
-    expected_work_types: list[str] | None = None
-    if processed_path is None:
-        cfg = load_data_config(root / data_config)
+    cfg = load_data_config(root / data_config) if data_config is not None else None
+    if processed_path is None and cfg is not None:
         processed_path = root / "data" / "processed" / f"{cfg.dataset_name}.parquet"
-        expected_work_types = getattr(cfg, "work_types", None)
-    else:
+    elif processed_path is not None:
         processed_path = root / processed_path
-        if data_config is not None:
-            cfg = load_data_config(root / data_config)
-            expected_work_types = getattr(cfg, "work_types", None)
     if not processed_path.exists():
         typer.echo(f"Processed file not found: {processed_path}", err=True)
         raise typer.Exit(1)
     df = read_parquet(processed_path)
-    run_id = processed_path.stem
-    dataset_mode = "representative" if "representative" in run_id else ("temporal" if "temporal" in run_id else None)
+    expected_work_types = getattr(cfg, "work_types", None) if cfg is not None else None
+    dataset_mode: str | None = None
+    source_config_path: Path | None = None
+    generation_params: dict | None = None
+    if cfg is not None:
+        dataset_mode = getattr(cfg, "dataset_mode", None) or (
+            "representative" if "representative" in (cfg.dataset_name or "") else ("temporal" if "temporal" in (cfg.dataset_name or "") else None)
+        )
+        source_config_path = root / data_config
+        generation_params = {
+            "stratify_by_year": getattr(cfg, "stratify_by_year", False),
+            "use_random_sample": getattr(cfg, "use_random_sample", False),
+            "seed": getattr(cfg, "seed", 42),
+            "sample_size": getattr(cfg, "sample_size", 0),
+            "from_publication_date": getattr(cfg, "from_publication_date", ""),
+            "to_publication_date": getattr(cfg, "to_publication_date", ""),
+            "work_types": getattr(cfg, "work_types", None),
+        }
+    else:
+        dataset_mode = "representative" if "representative" in processed_path.stem else ("temporal" if "temporal" in processed_path.stem else None)
     reports_dir = root / "artifacts" / "reports"
     from scholarly_outcome_prediction.validation.dataset_validation import (
         run_validation_and_save,
@@ -153,12 +167,56 @@ def validate(
         max_venue_missingness_pct=DEFAULT_MAX_VENUE_MISSINGNESS_PCT,
         dataset_mode=dataset_mode,
         expected_work_types=expected_work_types,
+        source_config_path=str(source_config_path) if source_config_path else None,
+        generation_params=generation_params,
     )
     typer.echo(f"Validation report: {json_path}")
     if not result.get("passed", True):
         typer.echo("Validation failed: " + "; ".join(result.get("errors", [])), err=True)
         raise typer.Exit(1)
     typer.echo("Validation passed.")
+
+
+@app.command("audit-dataset-overlap")
+def audit_dataset_overlap(
+    left: Path = typer.Option(..., "--left", "-l", path_type=Path, help="Path to first processed parquet"),
+    right: Path = typer.Option(..., "--right", "-r", path_type=Path, help="Path to second processed parquet"),
+    out_dir: Path = typer.Option(
+        None,
+        "--out-dir",
+        "-o",
+        path_type=Path,
+        help="Output directory for JSON and MD reports (default: artifacts/diagnostics)",
+    ),
+    id_column: str = typer.Option("openalex_id", "--id-column", help="Column used as work ID"),
+    label_left: str | None = typer.Option(None, "--label-left", help="Label for left dataset in report"),
+    label_right: str | None = typer.Option(None, "--label-right", help="Label for right dataset in report"),
+) -> None:
+    """Compare two processed datasets by work ID; report overlap and sample IDs. Use for representative vs temporal audit."""
+    root = _ensure_project_cwd()
+    left_path = left if left.is_absolute() else root / left
+    right_path = right if right.is_absolute() else root / right
+    if not left_path.exists():
+        typer.echo(f"Left path not found: {left_path}", err=True)
+        raise typer.Exit(1)
+    if not right_path.exists():
+        typer.echo(f"Right path not found: {right_path}", err=True)
+        raise typer.Exit(1)
+    out = out_dir if out_dir is not None else root / "artifacts" / "diagnostics"
+    out = out if out.is_absolute() else root / out
+    report, json_path, md_path = run_overlap_audit(
+        path_left=left_path,
+        path_right=right_path,
+        out_dir=out,
+        id_column=id_column,
+        label_left=label_left,
+        label_right=label_right,
+    )
+    if report.get("error"):
+        typer.echo(report["error"], err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Overlap report: {json_path}")
+    typer.echo(f"Summary: {report['size_left']} vs {report['size_right']} rows; overlap={report['overlap_count']} ({report['overlap_rate_from_left_pct']}% from left); identical={report['identical']}")
 
 
 @app.command()
@@ -340,7 +398,13 @@ def evaluate(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     save_metrics(metrics, out_path, run_metadata=run_meta)
     logger.info("Saved metrics to %s", out_path)
-    typer.echo(metrics)
+    logger.info(
+        "metrics: rmse=%.4f mae=%.4f r2=%.4f",
+        metrics.get("rmse"),
+        metrics.get("mae"),
+        metrics.get("r2"),
+    )
+    logger.debug("Full metrics: %s", metrics)
 
 
 def run_pipeline_from_configs(
@@ -387,13 +451,24 @@ def run_pipeline_from_configs(
     processed_path.parent.mkdir(parents=True, exist_ok=True)
     write_parquet(df, processed_path)
 
-    # Validation (dataset_mode from config name for representative vs temporal thresholds)
+    # Validation (dataset_mode and provenance from data config)
     from datetime import datetime, timezone
 
     run_instance_id = datetime.now(timezone.utc).isoformat()
     reports_dir = root / "artifacts" / "reports"
     dataset_id = data_cfg.dataset_name
-    dataset_mode = "representative" if "representative" in dataset_id else ("temporal" if "temporal" in dataset_id else None)
+    dataset_mode = getattr(data_cfg, "dataset_mode", None) or (
+        "representative" if "representative" in (dataset_id or "") else ("temporal" if "temporal" in (dataset_id or "") else None)
+    )
+    generation_params = {
+        "stratify_by_year": getattr(data_cfg, "stratify_by_year", False),
+        "use_random_sample": getattr(data_cfg, "use_random_sample", False),
+        "seed": getattr(data_cfg, "seed", 42),
+        "sample_size": getattr(data_cfg, "sample_size", 0),
+        "from_publication_date": getattr(data_cfg, "from_publication_date", ""),
+        "to_publication_date": getattr(data_cfg, "to_publication_date", ""),
+        "work_types": getattr(data_cfg, "work_types", None),
+    }
     from scholarly_outcome_prediction.validation.dataset_validation import (
         DEFAULT_MIN_ROW_COUNT,
         DEFAULT_MIN_YEARS_WITH_DATA,
@@ -420,6 +495,8 @@ def run_pipeline_from_configs(
         expected_year_max=expected_year_max,
         dataset_mode=dataset_mode,
         expected_work_types=expected_work_types,
+        source_config_path=str(data_config_path),
+        generation_params=generation_params,
     )
     if not validation_result.get("passed", True):
         typer.echo("Validation failed: " + "; ".join(validation_result.get("errors", [])), err=True)
@@ -626,14 +703,15 @@ def benchmark_analysis(
     artifacts_root = artifacts_dir or root / "artifacts"
     summary = run_benchmark_analysis(artifacts_root, out_dir=out_dir)
     logger.info(
-        "Benchmark analysis: loaded %s metrics, %s comparison rows, %s ablations",
+        "Benchmark analysis: loaded %s metrics, %s comparison rows, %s missing, %s ablations",
         summary["metrics_loaded"],
         summary["comparison_rows"],
+        summary["comparison_missing"],
         summary["ablation_count"],
     )
     for label, path in summary["written"].items():
         logger.info("Wrote %s -> %s", label, path)
-    typer.echo(summary)
+    logger.debug("Benchmark analysis summary: %s", summary)
 
 
 if __name__ == "__main__":

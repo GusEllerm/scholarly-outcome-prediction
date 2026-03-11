@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,72 @@ import pandas as pd
 
 from scholarly_outcome_prediction.diagnostics.dataset_stats import compute_canonical_dataset_stats
 from scholarly_outcome_prediction.utils.io import save_json
+
+# Column used for work identity in processed data
+WORK_ID_COLUMN = "openalex_id"
+
+
+def _work_id_fingerprint(df: pd.DataFrame, id_column: str = WORK_ID_COLUMN) -> str | None:
+    """Return a compact hash of sorted work IDs for provenance, or None if column missing/empty."""
+    if id_column not in df.columns:
+        return None
+    ids = df[id_column].dropna().astype(str).sort_values().unique()
+    if len(ids) == 0:
+        return None
+    blob = "|".join(ids)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
+def _selection_strategy_summary(
+    dataset_mode: str | None,
+    generation_params: dict[str, Any] | None,
+) -> str:
+    """Human-readable summary of dataset semantics and acquisition (for provenance).
+    dataset_mode is authoritative: representative = broad-sample / representative-oriented evaluation;
+    temporal = forward-time generalization with time-ordered train/test split.
+    """
+    if dataset_mode == "representative":
+        acq = "n/a"
+        if generation_params:
+            strat = generation_params.get("stratify_by_year")
+            use_random = generation_params.get("use_random_sample")
+            if strat and use_random:
+                acq = "stratify_by_year=true, use_random_sample=true (within-year random sampling)"
+            else:
+                acq = f"stratify_by_year={strat}, use_random_sample={use_random}"
+        return (
+            "Representative dataset: intended to approximate a broad article sample. "
+            "Random within-year sampling is acceptable; split strategy may be random or otherwise representative-oriented. "
+            f"Acquisition: {acq}."
+        )
+    if dataset_mode == "temporal":
+        acq = "n/a"
+        if generation_params:
+            strat = generation_params.get("stratify_by_year")
+            use_random = generation_params.get("use_random_sample")
+            if strat and use_random is False:
+                acq = "stratify_by_year=true, use_random_sample=false (cursor per year, API order)"
+            elif strat and use_random:
+                acq = (
+                    "stratify_by_year=true, use_random_sample=true (within-year random sample per year); "
+                    "evaluation uses time-ordered train/test split."
+                )
+            else:
+                acq = f"stratify_by_year={strat}, use_random_sample={use_random}"
+        return (
+            "Temporal dataset: intended for forward-time generalization. "
+            "The key benchmark distinction is time-ordered evaluation (train on past, test on future). "
+            "Do not interpret this dataset as a representative sample; split semantics define the benchmark. "
+            f"Acquisition: {acq}."
+        )
+    if dataset_mode:
+        acq = "n/a"
+        if generation_params:
+            acq = f"stratify_by_year={generation_params.get('stratify_by_year')}, use_random_sample={generation_params.get('use_random_sample')}"
+        return f"{dataset_mode}: acquisition {acq}."
+    if generation_params:
+        return f"unspecified mode; stratify_by_year={generation_params.get('stratify_by_year')}, use_random_sample={generation_params.get('use_random_sample')}"
+    return "unspecified"
 
 # Severity for validation messages: error (fails), warning, informational, expected (e.g. article-only by config)
 SEVERITY_ERROR = "error"
@@ -234,11 +301,14 @@ def run_validation_and_save(
     expected_work_types: list[str] | None = None,
     max_median_citations_representative: float | None = DEFAULT_MAX_MEDIAN_CITATIONS_REPRESENTATIVE,
     min_distinct_venues_representative: int | None = DEFAULT_MIN_DISTINCT_VENUES_REPRESENTATIVE,
+    source_config_path: str | Path | None = None,
+    generation_params: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], Path, Path]:
     """
     Run raw + processed validation, merge results, save JSON and MD. Returns (merged_result, json_path, md_path).
     When run_id is provided, report is run-scoped (specific execution). When run_id is None, report is dataset-scoped
     and uses report_id and source_dataset_id only. Filename always uses source_dataset_id (processed_path.stem).
+    Optional source_config_path and generation_params are recorded in provenance for dataset identity.
     """
     from scholarly_outcome_prediction.diagnostics.report_metadata import report_metadata
 
@@ -291,11 +361,29 @@ def run_validation_and_save(
             config_paths=None,
         )
 
+    # Provenance: identity and generation so two reports are distinguishable even when stats look similar
+    work_id_fingerprint = _work_id_fingerprint(df)
+    selection_strategy_summary = _selection_strategy_summary(dataset_mode, generation_params)
+    provenance: dict[str, Any] = {
+        "dataset_id": source_dataset_id,
+        "processed_path": str(processed_path),
+        "dataset_mode": dataset_mode,
+        "work_id_fingerprint": work_id_fingerprint,
+        "publication_year_coverage": (proc_result.get("publication_year") or {}).get("counts"),
+    }
+    if source_config_path is not None:
+        provenance["source_config_path"] = str(source_config_path)
+    if generation_params:
+        provenance["generation_params"] = generation_params
+    if selection_strategy_summary:
+        provenance["selection_strategy_summary"] = selection_strategy_summary
+
     merged: dict[str, Any] = {
         **meta,
         "dataset_mode": dataset_mode,
         "expected_work_types": expected_work_types,
         "processed_path": str(processed_path),
+        "provenance": provenance,
         "validated_at": meta["generated_at"],
         "raw": raw_result,
         "processed": proc_result,
@@ -308,16 +396,25 @@ def run_validation_and_save(
     json_path = out_dir / f"{source_dataset_id}_dataset_validation.json"
     save_json(merged, json_path)
 
-    # Markdown report with severity
+    # Markdown report with severity and provenance
+    prov = merged.get("provenance", {})
     lines = [
         f"# Dataset validation: {source_dataset_id}",
         "",
         f"- **Report scope**: {meta.get('report_scope')}",
         f"- **Processed path**: {processed_path}",
         f"- **Dataset mode**: {dataset_mode or 'unspecified'}",
-        f"- **Expected work types**: {expected_work_types or 'any'}",
+        f"- **Dataset ID**: {prov.get('dataset_id', source_dataset_id)}",
+        f"- **Work ID fingerprint**: {prov.get('work_id_fingerprint') or 'n/a'}",
+        f"- **Source config**: {prov.get('source_config_path') or 'n/a'}",
+        f"- **Selection strategy**: {prov.get('selection_strategy_summary') or 'n/a'}",
         f"- **Passed**: {merged['passed']}",
         f"- **Validated at**: {merged['validated_at']}",
+        "",
+        "## Provenance",
+        "",
+        f"- generation_params: {prov.get('generation_params') or 'n/a'}",
+        f"- publication_year coverage: {list((prov.get('publication_year_coverage') or {}).keys())[:10]}...",
         "",
         "## Messages (by severity)",
     ]

@@ -97,7 +97,7 @@ When both `train_year_end` and `test_year_start` are set, they define explicit b
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| **name** | string | No | `"baseline"` | Model name as registered in `models/registry.py` (e.g. `baseline`, `ridge`, `xgboost`, `year_conditioned`, `hurdle`). |
+| **name** | string | No | `"baseline"` | Model name as registered in `models/registry.py` (e.g. `baseline`, `ridge`, `elastic_net`, `xgboost`, `extra_trees`, `hist_gradient_boosting`, `year_conditioned`, `hurdle`). Active benchmark models exclude experimental/non-standard entries (e.g. `tweedie`). |
 | **params** | object | No | `{}` | Model-specific hyperparameters passed to the builder (e.g. XGBoost `n_estimators`, `max_depth`; ridge `alpha`). |
 
 ---

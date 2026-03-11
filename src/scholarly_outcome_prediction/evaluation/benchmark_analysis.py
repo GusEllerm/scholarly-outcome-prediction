@@ -39,11 +39,18 @@ ABLATION_TYPE_COARSE = {"no_publication_year", "no_venue_name", "no_primary_topi
 MODEL_FAMILY_FALLBACK: dict[str, str] = {
     "baseline": "trivial_baseline",
     "ridge": "linear_baseline",
+    "elastic_net": "linear_baseline",
     "year_conditioned": "diagnostic_baseline",
     "hurdle": "hurdle_baseline",
     "xgboost": "tree_model",
+    "extra_trees": "tree_model",
+    "hist_gradient_boosting": "tree_model",
+    "tweedie": "count_aware_glm",
 }
 DIAGNOSTIC_ONLY_MODELS_FALLBACK = {"year_conditioned"}
+
+# Models excluded from the active benchmark comparison (e.g. poor methodological fit). Retained in registry for experimental use.
+BENCHMARK_EXCLUDED_MODELS: set[str] = {"tweedie"}
 
 # Backward compatibility for tests / external code that referenced these
 ABLATION_FEATURES_REMOVED = ABLATION_FEATURES_REMOVED_FALLBACK
@@ -175,6 +182,8 @@ def build_benchmark_comparison(metrics_list: list[dict[str, Any]]) -> dict[str, 
         if bm is None:
             continue
         model = data.get("model_name", "unknown")
+        if model in BENCHMARK_EXCLUDED_MODELS:
+            continue
         key = (bm, model)
         if key in seen:
             continue
@@ -207,8 +216,17 @@ def build_benchmark_comparison(metrics_list: list[dict[str, Any]]) -> dict[str, 
         row["run_id"] = data.get("run_id")
         rows.append(row)
 
-    # Missing benchmarks: expected (benchmark_mode, model) combinations
-    expected_models = ["baseline", "ridge", "year_conditioned", "xgboost", "hurdle"]
+    # Missing benchmarks: expected (benchmark_mode, model) combinations (active benchmark suite only; excludes BENCHMARK_EXCLUDED_MODELS)
+    expected_models = [
+        "baseline",
+        "ridge",
+        "elastic_net",
+        "year_conditioned",
+        "xgboost",
+        "extra_trees",
+        "hist_gradient_boosting",
+        "hurdle",
+    ]
     found_modes = {r["benchmark_mode"] for r in rows}
     missing: list[dict[str, Any]] = []
     for bm in BENCHMARK_MODES:

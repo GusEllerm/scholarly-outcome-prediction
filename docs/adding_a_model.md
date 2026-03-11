@@ -23,7 +23,7 @@ Each config must specify:
 - **Benchmark metadata (required for train/evaluate):**
   - Add a **`benchmark:`** block with:
     - **`benchmark_mode`**: one of `representative_proxy`, `temporal_proxy`, `representative_h2`, `temporal_h2`.
-    - **`model_family`**: e.g. `trivial_baseline`, `linear_baseline`, `tree_model`, `hurdle_baseline`, `diagnostic_baseline`, or a new family label you introduce.
+    - **`model_family`**: e.g. `trivial_baseline`, `linear_baseline`, `tree_model`, `hurdle_baseline`, `diagnostic_baseline`, `count_aware_glm`, or a new family label you introduce.
     - **`is_diagnostic_model`**: `true` only if this model is for interpretation/diagnostic use (e.g. year-conditioned baseline), not a primary comparator. Default `false`.
 
 Example (primary model):
@@ -69,6 +69,8 @@ Or use the `run` command with a data config and two experiment configs; or add a
 - **Benchmark mode** (which row in the comparison table): from **`benchmark_mode`** in the metrics JSON (required in current configs). Older artifacts without it are classified via legacy inference and labeled `legacy_inferred`.
 - **Model family** (e.g. “linear baseline”, “tree model”): from **`model_family`** in the metrics JSON (required in current configs). Older artifacts use a legacy fallback map.
 - **Diagnostic vs primary**: from **`is_diagnostic_model`** in the metrics JSON (required in current configs). Older artifacts use a legacy fallback set of model names.
+
+**Active benchmark suite:** Only models not in `BENCHMARK_EXCLUDED_MODELS` appear in the comparison table. Currently excluded: `tweedie` (retained in registry for experimental use; poor methodological fit for the shared target/preprocessing framework). Supported active benchmark models include baseline, ridge, elastic_net, extra_trees, hist_gradient_boosting, xgboost, hurdle, year_conditioned (diagnostic).
 
 **Current configs must declare the `benchmark` block** so that train/evaluate succeed and metrics are self-describing. Inference from naming exists only for reading historical metrics artifacts.
 

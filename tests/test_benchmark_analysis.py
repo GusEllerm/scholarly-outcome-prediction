@@ -282,6 +282,27 @@ def test_diagnostic_from_explicit_metadata() -> None:
     assert comparison["rows"][0]["is_diagnostic_only_source"] == "explicit"
 
 
+def test_benchmark_comparison_excludes_tweedie() -> None:
+    """Tweedie is excluded from the active benchmark comparison (BENCHMARK_EXCLUDED_MODELS)."""
+    metrics_list = [
+        {
+            "experiment_name": "tweedie_temporal_h2",
+            "model_name": "tweedie",
+            "benchmark_mode": "temporal_h2",
+            "model_family": "count_aware_glm",
+            "is_diagnostic_model": False,
+            "dataset_id": "openalex_temporal_articles_1000",
+            "rmse": 0.7,
+            "mae": 0.5,
+            "r2": 0.35,
+        },
+    ]
+    comparison = build_benchmark_comparison(metrics_list)
+    assert len(comparison["rows"]) == 0
+    # Tweedie is not in expected_models, so it may appear in missing; exclusion is that rows are not included
+    assert not any(r.get("model_name") == "tweedie" for r in comparison["rows"])
+
+
 def test_legacy_artifacts_compatibility() -> None:
     """Older metrics JSONs without explicit benchmark_mode/model_family are still readable; classification is legacy_inferred."""
     metrics_list = [

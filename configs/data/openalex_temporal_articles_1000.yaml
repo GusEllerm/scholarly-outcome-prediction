@@ -1,7 +1,9 @@
 # Temporal pilot: article-only, multi-year sample for time-based evaluation.
-# stratify_by_year=true ensures real year spread for train-on-past / test-on-future splits.
+# stratify_by_year=true; use_random_sample=true -> random sample per year (distinct from representative via seed and split).
+# dataset_mode: explicit identity for validation and provenance.
 dataset_name: openalex_temporal_articles_1000
-seed: 42
+dataset_mode: temporal
+seed: 99
 sample_size: 1000
 
 from_publication_date: "2015-01-01"

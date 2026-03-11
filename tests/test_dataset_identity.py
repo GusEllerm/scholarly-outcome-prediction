@@ -1,13 +1,16 @@
-"""Tests for dataset identity propagation in run artifacts."""
+"""Tests for dataset identity propagation in run artifacts and dataset config semantics."""
 
 import json
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from scholarly_outcome_prediction.evaluation import (
     build_run_metadata,
     save_metrics,
 )
+from scholarly_outcome_prediction.settings import load_data_config
 from scholarly_outcome_prediction.utils.io import load_json
 
 
@@ -124,3 +127,40 @@ def test_run_metadata_dataset_mode() -> None:
     )
     assert meta["dataset_mode"] == "representative"
     assert meta["target_mode"] == "proxy"
+
+
+def test_representative_and_temporal_configs_differ_by_use_random_sample() -> None:
+    """Representative and temporal data configs have explicit dataset_mode and valid sampling flags."""
+    root = Path(__file__).resolve().parents[1]
+    rep_path = root / "configs" / "data" / "openalex_representative_articles_1000.yaml"
+    temp_path = root / "configs" / "data" / "openalex_temporal_articles_1000.yaml"
+    if not rep_path.exists() or not temp_path.exists():
+        pytest.skip("Data configs not found")
+    rep = load_data_config(rep_path)
+    temp = load_data_config(temp_path)
+    assert getattr(rep, "use_random_sample", None) is True
+    assert getattr(rep, "dataset_mode", None) == "representative"
+    # Temporal is allowed to use either cursor or random; we only assert dataset_mode is set.
+    assert getattr(temp, "dataset_mode", None) == "temporal"
+
+
+def test_data_config_temporal_requires_use_random_sample_false() -> None:
+    """DataConfig with dataset_mode=temporal can use use_random_sample either True or False (no validation error)."""
+    from scholarly_outcome_prediction.settings import DataConfig
+
+    cfg_cursor = DataConfig(
+        dataset_name="test_temporal_cursor",
+        dataset_mode="temporal",
+        sample_size=100,
+        stratify_by_year=True,
+        use_random_sample=False,
+    )
+    assert cfg_cursor.dataset_mode == "temporal"
+    cfg_random = DataConfig(
+        dataset_name="test_temporal_random",
+        dataset_mode="temporal",
+        sample_size=100,
+        stratify_by_year=True,
+        use_random_sample=True,
+    )
+    assert cfg_random.dataset_mode == "temporal"

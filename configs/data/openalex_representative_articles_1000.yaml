@@ -1,6 +1,8 @@
 # Representative pilot: article-only, multi-year, within-year RANDOM sampling.
 # stratify_by_year + use_random_sample: OpenAlex sample+seed per year (no API default order bias).
+# dataset_mode: explicit identity for validation and provenance; must match use_random_sample=true.
 dataset_name: openalex_representative_articles_1000
+dataset_mode: representative
 seed: 42
 sample_size: 1000
 
